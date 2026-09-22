@@ -10,6 +10,26 @@ const TRACK_VH = 180
 /** exact Google Maps URLs (§27) — used verbatim by both the pins and the links */
 const mapsHref = (s) => s.maps
 
+/* Both of these are read off STUDIOS rather than written out, so opening a
+   fourth studio changes the heading and the invitation with it. */
+const NUMBER_WORD = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six']
+const STUDIO_COUNT = NUMBER_WORD[STUDIOS.length] ?? String(STUDIOS.length)
+/* The map is drawn `preserveAspectRatio="slice"`, so a portrait pane crops the
+   square viewBox to roughly x 10–90. The captions were set at x=4, outside
+   that — and the city line, now a city longer, ran off the other edge too.
+   Anchoring them inside the crop and sizing the city line to the width left
+   keeps every caption whole, and keeps the three of them aligned. */
+const CAPTION_X = 12
+const CAPTION_ROOM = 76 // viewBox units from CAPTION_X to the cropped edge
+const CITY_CAPTION = STUDIOS.map((s) => s.city.toUpperCase()).join(' \u00b7 ')
+/* 0.812 units of width per character per unit of font size, at this tracking */
+const CITY_CAPTION_SIZE = Math.min(2.6, CAPTION_ROOM / (CITY_CAPTION.length * 0.812))
+
+const CITY_LIST = STUDIOS.map((s) => s.city).reduce(
+  (acc, city, i) => (i === 0 ? city : i === STUDIOS.length - 1 ? `${acc} or ${city}` : `${acc}, ${city}`),
+  '',
+)
+
 /** equirectangular projection of [lat,lng] into the 0–100 map viewBox, over
  *  India's bounds (lat 8–37 N, lng 68–97 E) — north at the top */
 const proj = ([lat, lng]) => [((lng - 68) / 29) * 100, ((37 - lat) / 29) * 100]
@@ -50,7 +70,41 @@ export function Studios({ viewport, reduced = false }) {
         pts.reduce((a, q) => a + q[0], 0) / pts.length,
         pts.reduce((a, q) => a + q[1], 0) / pts.length,
       ]
-      const S1 = stacked ? 4.4 : 5.2
+      /* ── how far the journey zooms in ─────────────────────────────────
+         The pass must end on a framing that holds EVERY studio, and the
+         studios no longer sit in one cluster — Chennai is most of a state
+         east of the other three. So the final zoom is fitted to the spread
+         rather than stated: the widest offset from the centroid in each
+         direction is measured, the visible half-extent of the viewBox is
+         derived from the pane's own aspect (`preserveAspectRatio` is
+         `slice`, so the square viewBox is cropped on the longer axis), and
+         the zoom is the largest that still leaves every pin — and the label
+         that runs to the right of it — inside the frame.
+
+         It never zooms in further than the figure this map has always used,
+         so with a tighter set of studios nothing about the pass changes. */
+      const svg = el.querySelector('svg')
+      const LABEL = 17 // pin offset plus the longest city label, in viewBox units
+      const EDGE = 4 // breathing room at the frame
+      const fitZoom = () => {
+        const most = (f) => Math.max(0.0001, ...pts.map(f))
+        const right = most((q) => q[0] - mid[0])
+        const left = most((q) => mid[0] - q[0])
+        const down = most((q) => q[1] - mid[1])
+        const up = most((q) => mid[1] - q[1])
+        const w = svg?.clientWidth || 1
+        const h = svg?.clientHeight || 1
+        const halfX = 50 * Math.min(1, w / h)
+        const halfY = 50 * Math.min(1, h / w)
+        const z = Math.min(
+          (halfX - LABEL) / right,
+          (halfX - EDGE) / left,
+          (halfY - EDGE) / down,
+          (halfY - EDGE) / up,
+        )
+        return Math.max(2.2, Math.min(stacked ? 4.4 : 5.2, z))
+      }
+      let S1 = fitZoom()
 
       const frame = (p) => {
         const s = 1 + p * (S1 - 1)
@@ -75,7 +129,11 @@ export function Studios({ viewport, reduced = false }) {
         frame(0)
         gsap.to({ p: 0 }, {
           p: 1, ease: 'none',
-          scrollTrigger: { trigger: el, start: 'top top', end: 'bottom bottom', scrub: true },
+          scrollTrigger: {
+            trigger: el, start: 'top top', end: 'bottom bottom', scrub: true,
+            invalidateOnRefresh: true,
+            onRefresh: () => { S1 = fitZoom() },
+          },
           onUpdate() { frame(this.targets()[0].p) },
         })
         gsap.from(q('[data-info] [data-reveal-item]'), {
@@ -137,10 +195,10 @@ export function Studios({ viewport, reduced = false }) {
             {STUDIOS.map((s) => pin(s, s.id))}
 
             {/* zoom captions, fixed to the frame */}
-            <text data-zoom="india" x="4" y="7" style={{ fontSize: 2.6, letterSpacing: '0.24em' }} className="fill-ink/45 font-sans">INDIA</text>
-            <text data-zoom="state" x="4" y="7" style={{ fontSize: 2.6, letterSpacing: '0.24em', opacity: 0 }} className="fill-ink/45 font-sans">SOUTH INDIA</text>
-            <text data-zoom="cities" x="4" y="7" style={{ fontSize: 2.6, letterSpacing: '0.24em', opacity: 0 }} className="fill-terra font-sans">
-              {STUDIOS.map((s) => s.city.toUpperCase()).join(' · ')}
+            <text data-zoom="india" x={CAPTION_X} y="7" style={{ fontSize: 2.6, letterSpacing: '0.24em' }} className="fill-ink/45 font-sans">INDIA</text>
+            <text data-zoom="state" x={CAPTION_X} y="7" style={{ fontSize: 2.6, letterSpacing: '0.24em', opacity: 0 }} className="fill-ink/45 font-sans">SOUTH INDIA</text>
+            <text data-zoom="cities" x={CAPTION_X} y="7" style={{ fontSize: CITY_CAPTION_SIZE, letterSpacing: '0.24em', opacity: 0 }} className="fill-terra font-sans">
+              {CITY_CAPTION}
             </text>
           </svg>
         </div>
@@ -154,10 +212,10 @@ export function Studios({ viewport, reduced = false }) {
               <span className="font-sans text-[12px] tracking-label text-ink/65">STUDIOS</span>
             </div>
             <h2 data-reveal-item className="mt-6 font-display text-[clamp(2rem,4.2vw,3.4rem)] font-light leading-[1.0] text-ink">
-              Three studios.<br />One standard.
+              {STUDIO_COUNT} studios.<br />One standard.
             </h2>
             <p data-reveal-item className="mt-5 max-w-[42ch] font-sans text-[16px] font-light leading-[1.8] text-ink/60 sm:text-[16px]">
-              Visit us in Coimbatore, Bengaluru or Seelapadi — or send us your plan and we will call you back.
+              Visit us in {CITY_LIST} — or send us your plan and we will call you back.
             </p>
 
             <div className="mt-10 grid gap-8 sm:grid-cols-2">

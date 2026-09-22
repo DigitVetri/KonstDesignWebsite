@@ -8,6 +8,7 @@
 
 export const PHONE_PRIMARY = '+91 98943 31115'
 export const PHONE_SECONDARY = '+91 77080 08184'
+export const PHONE_BENGALURU = '+91 86675 98606'
 export const EMAIL = 'Mohasher11@gmail.com'
 
 /** the four studio credentials (the "04 Recognition" line heads its own
@@ -19,13 +20,70 @@ export const STATS = [
   { value: '11K', label: 'Twitter Followers' },
 ]
 
+/**
+ * The three studio principals, in the order the connector runs left to right:
+ * Coimbatore, Bengaluru, Dindigul. Names and qualifications are as supplied,
+ * and each photograph is the principal at their own desk in that studio.
+ *
+ * `enter` is the direction that card travels in from on its first appearance —
+ * the outer two horizontally, the middle one up from below.
+ */
+export const NETWORK = [
+  {
+    id: 'coimbatore',
+    city: 'Coimbatore',
+    name: 'Mohammad Sheriff',
+    qualification: 'D.Arch',
+    image: '/assets/network/coimbatore.webp',
+    enter: 'left',
+  },
+  {
+    id: 'bengaluru',
+    city: 'Bengaluru',
+    name: 'Ar. Hari Prasanth',
+    qualification: 'B.Arch',
+    image: '/assets/network/bengaluru.webp',
+    enter: 'up',
+  },
+  {
+    id: 'dindigul',
+    city: 'Dindigul',
+    name: 'Er. Safiq Ahamed',
+    qualification: 'B.E., MBA',
+    image: '/assets/network/dindigul.webp',
+    enter: 'right',
+  },
+]
+
+/**
+ * The three awards the Recognition section pins through, in the order they are
+ * numbered. `note` is the secondary line under the title, where one exists;
+ * every other award simply has none and nothing is rendered in its place.
+ */
+export const AWARD_CAPTION = 'Architecture & Interior Design Excellence Awards 2024 \u00b7 Global Edition'
+
 export const AWARDS = [
-  'Excellence in Residential Architecture',
-  'Best Interior Design Studio — Coimbatore',
-  'Young Architect Recognition',
-  'Modular Kitchen Design Award',
-  'Sustainable Residence Citation',
-  'Visualization Studio of the Year',
+  {
+    id: 'award-01',
+    number: '01',
+    title: 'Best Interior Design',
+    note: null,
+    image: '/assets/awards/award-01.webp',
+  },
+  {
+    id: 'award-02',
+    number: '02',
+    title: 'Elite Outstanding Entrepreneur & Designer of the Year \u2014 2024',
+    note: null,
+    image: '/assets/awards/award-02.webp',
+  },
+  {
+    id: 'award-03',
+    number: '03',
+    title: 'Trusted & Innovative Interior Design and Architectural Design Firm of the Year \u2014 2024',
+    note: 'Residential & Commercial Projects',
+    image: '/assets/awards/award-03.webp',
+  },
 ]
 
 export const PRINCIPLES = [
@@ -35,7 +93,7 @@ export const PRINCIPLES = [
   { number: '04', title: 'Personalization', body: "Every project is designed around the client's lifestyle and requirements.", image: '/assets/principles/personalization.webp', side: 'right' },
 ]
 
-/** The three studios. Each `maps` link is the address above, percent-encoded
+/** The four studios. Each `maps` link is the address above, percent-encoded
  *  into Google's documented search endpoint, so the pin and the "View on Google
  *  Maps" link both resolve to the exact address rather than to a guess. `coord`
  *  is [lat, lng], used only to place the pin on the country-scale map — at that
@@ -60,19 +118,30 @@ export const STUDIOS = [
       'Rayasandra Post, Huskur,',
       'Bengaluru, Karnataka \u2013 560099.',
     ],
-    /* no phone supplied for this studio — the line is simply not rendered */
-    phone: null,
+    phone: PHONE_BENGALURU,
     maps: 'https://www.google.com/maps/search/?api=1&query=Second%20Floor%2C%20Shop%20No.%20S7%20%26%20S8%2C%20AUM%20Arcade%2C%20Doddamara%20Road%2C%20Rayasandra%20Post%2C%20Huskur%2C%20Bengaluru%2C%20Karnataka%20560099',
     coord: [12.856, 77.681],
   },
   {
-    id: 'seelapadi',
-    city: 'Seelapadi',
+    id: 'dindigul',
+    /* The studio is named for its town; `lines` keeps Seelapadi, which is the
+       locality inside that postal address and is not the studio's name. */
+    city: 'Dindigul',
     role: 'Er. Safeeq Ahmed, BE MBA',
     lines: ['734/6, Karur Road,', 'Seelapadi,', 'Tamil Nadu 624001.'],
     phone: PHONE_SECONDARY,
     maps: 'https://www.google.com/maps/search/?api=1&query=734%2F6%2C%20Karur%20Road%2C%20Seelapadi%2C%20Tamil%20Nadu%20624001',
     coord: [10.345, 77.933],
+  },
+  {
+    id: 'chennai',
+    city: 'Chennai',
+    role: 'Studio',
+    lines: ['Shop No. 2, Second Cross Street,', 'Trustpuram, Kodambakkam,', 'Chennai - 600024.'],
+    /* no phone supplied for this studio — the line is simply not rendered */
+    phone: null,
+    maps: 'https://www.google.com/maps/search/?api=1&query=Shop%20No.%202%2C%20Second%20Cross%20Street%2C%20Trustpuram%2C%20Kodambakkam%2C%20Chennai%20-%20600024',
+    coord: [13.0507, 80.2243],
   },
 ]
 

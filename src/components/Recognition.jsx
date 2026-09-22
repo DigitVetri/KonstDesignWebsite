@@ -1,108 +1,175 @@
-import { useLayoutEffect, useRef } from 'react'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { AWARDS } from '../data/studio.js'
+import { useRef } from 'react'
+import { AWARDS, AWARD_CAPTION } from '../data/studio.js'
+import { useMediaQuery } from '../hooks/useMediaQuery.js'
+import { useAwardsTimeline } from '../awards/useAwardsTimeline.js'
+import { ProgressRail } from './ProgressRail.jsx'
 
-gsap.registerPlugin(ScrollTrigger)
+/**
+ * The pass needs enough height to hold a full-bleed photograph and its title
+ * inside one viewport. Below it — a phone on its side, a very short window —
+ * the section falls back to the static list rather than pinning into a space
+ * it cannot use. The same threshold Services uses.
+ */
+const TALL_ENOUGH = '(min-height: 640px)'
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- *  RECOGNITION  ·  an editorial credits sweep, not a carousel
+ *  RECOGNITION  ·  three awards, one pinned pass
  * ─────────────────────────────────────────────────────────────────────────────
- *  The six awards are listed once. As the reader scrolls, whichever award
- *  crosses the focal line becomes the active one — full ink and a terracotta
- *  marker — while the rest stay quiet. It is entirely scroll-driven and
- *  reverses cleanly; there are no arrows and no controls. The left header sits
- *  still while the credits pass it, the way titles run beside a still frame.
+ *  The site's established pinned-section pattern, not a new one: the panel is
+ *  pinned by ScrollTrigger and scrubbed 1:1 by the scrollbar, and the shared
+ *  progress rail — the same 01 → 03 hairline and travelling house Services
+ *  uses — is driven from that same trigger's progress. See
+ *  `useAwardsTimeline` for the mechanics; everything here is layout.
+ *
+ *  The left column holds still — index, "Awards", the awards' caption — while
+ *  the title block beneath it swaps, and the right column is a loose pile of
+ *  the three photographs, the current one square on top and the other two
+ *  leaning out behind. Scrolling back reverses all of it.
+ *
+ *  The ground is not left bare: an oversized outline numeral sits behind the
+ *  words and changes with the award, and two hairlines frame the panel — the
+ *  same drafting-paper devices Experience already uses, at the same restraint.
  */
 export function Recognition({ reduced = false }) {
   const root = useRef(null)
+  const panel = useRef(null)
+  const rail = useRef(null)
+  const marker = useRef(null)
 
-  useLayoutEffect(() => {
-    const el = root.current
-    if (!el) return
-    const ctx = gsap.context((self) => {
-      const items = self.selector('[data-award]')
-      const setActive = (i) => {
-        items.forEach((it, j) => {
-          const on = j === i
-          it.dataset.active = on ? 'true' : 'false'
-        })
-      }
-      setActive(0)
+  const tallEnough = useMediaQuery(TALL_ENOUGH)
+  const pinned = !reduced && tallEnough
 
-      if (reduced) {
-        gsap.set(self.selector('[data-reveal] > *'), { opacity: 1, y: 0 })
-        return
-      }
+  useAwardsTimeline(root, panel, rail, marker, { enabled: pinned, count: AWARDS.length })
 
-      gsap.from(self.selector('[data-reveal] > *'), {
-        opacity: 0, y: 24, duration: 1, ease: 'expo.out', stagger: 0.1,
-        scrollTrigger: { trigger: el, start: 'top 70%', once: true },
-      })
+  const header = (
+    <div>
+      <div className="flex items-center gap-4">
+        <span className="font-sans text-[12px] tracking-label text-terra">04</span>
+        <span className="h-px w-10 bg-cream-line" />
+        <span className="font-sans text-[12px] tracking-label text-ink/65">RECOGNITION</span>
+      </div>
+      <h2 className="mt-6 font-display text-[clamp(3.4rem,8vw,7rem)] font-light leading-[0.92] text-ink">
+        Awards
+      </h2>
+      <p className="mt-6 max-w-[34ch] font-sans text-[13px] font-light leading-[1.7] tracking-[0.04em] text-ink/60 sm:text-[15px]">
+        {AWARD_CAPTION}
+      </p>
+    </div>
+  )
 
-      items.forEach((it, i) => {
-        ScrollTrigger.create({
-          trigger: it,
-          start: 'top 58%',
-          end: 'bottom 42%',
-          onToggle: (s) => s.isActive && setActive(i),
-        })
-      })
-    }, root)
-    return () => ctx.revert()
-  }, [reduced])
+  /** One award's words — the label, the title, and its secondary line. */
+  const words = (a) => (
+    <>
+      <p className="font-sans text-[12px] tracking-label text-terra">AWARD {a.number}</p>
+      <h3 className="mt-4 font-display text-[clamp(1.8rem,3.4vw,3.2rem)] font-light leading-[1.06] text-ink">
+        {a.title}
+      </h3>
+      {a.note && (
+        <p className="mt-4 font-sans text-[12px] tracking-label text-ink/55">{a.note}</p>
+      )}
+    </>
+  )
 
-  return (
-    <section
-      id="recognition"
-      ref={root}
-      aria-label="Recognition"
-      className="relative bg-cream"
-    >
-      <div className="q-grid q-grid-cream" />
-      <div className="relative z-10 mx-auto grid w-full max-w-[1400px] gap-12 px-6 py-[14vh] sm:px-10 lg:grid-cols-12 lg:px-14">
-        {/* ── header (holds still while the credits pass) ──────────────── */}
-        <div className="lg:col-span-4">
-          <div data-reveal className="lg:sticky lg:top-[32vh]">
-            <div className="flex items-center gap-4">
-              <span className="font-sans text-[12px] tracking-label text-terra">04</span>
-              <span className="h-px w-10 bg-cream-line" />
-              <span className="font-sans text-[12px] tracking-label text-ink/65">RECOGNITION</span>
-            </div>
-            <h2 className="mt-6 font-display text-[clamp(2rem,4vw,3.2rem)] font-light leading-[1.02] text-ink">
-              Recognition
-            </h2>
-            <p className="mt-6 font-display text-[clamp(1.4rem,2.4vw,2rem)] font-light text-terra">
-              12 <span className="text-ink/70">Awards won</span>
-            </p>
-            <p className="mt-5 max-w-[36ch] font-sans text-[16px] font-light leading-[1.8] text-ink/60">
-              Work recognised for residential architecture, interior craft and visualization — across fourteen years of practice.
-            </p>
-          </div>
+  /** One award's photograph, in the site's square-cornered figure treatment. */
+  const photo = (a, className = '', style = undefined) => (
+    <figure className={`overflow-hidden border border-cream-line bg-cream shadow-[0_18px_50px_-24px_rgba(11,10,9,0.45)] ${className}`} style={style}>
+      <div className="aspect-[3/2] w-full">
+        <img
+          src={a.image}
+          alt={`KONST DESIGN receiving the ${a.title} award`}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
+      </div>
+    </figure>
+  )
+
+  /* ── the static fallback ─────────────────────────────────────────────────
+     Taken under `prefers-reduced-motion`, and on any viewport too short to
+     pin into. The three awards simply stack down the page with their
+     photographs, in order, with nothing that moves under the scrollbar. */
+  if (!pinned) {
+    return (
+      <section id="recognition" ref={root} aria-label="Recognition" className="relative bg-cream">
+        <div className="q-grid q-grid-cream" />
+        <div className="relative z-10 mx-auto w-full max-w-[1400px] px-6 py-[12vh] sm:px-10 lg:px-14">
+          {header}
+          <ol className="mt-[9vh] space-y-[9vh]">
+            {AWARDS.map((a) => (
+              <li key={a.id}>
+                {photo(a)}
+                <div className="mt-7">{words(a)}</div>
+              </li>
+            ))}
+          </ol>
         </div>
+      </section>
+    )
+  }
 
-        {/* ── the awards, once each ────────────────────────────────────── */}
-        <ol className="lg:col-span-7 lg:col-start-6">
-          {AWARDS.map((a, i) => (
-            <li
-              key={a}
-              data-award
-              data-active={i === 0 ? 'true' : 'false'}
-              className="group border-b border-cream-line py-8 first:border-t sm:py-10"
-            >
-              <div className="flex items-baseline gap-5">
-                <span className="font-sans text-[12px] tracking-label text-ink/60 transition-colors duration-500 group-data-[active=true]:text-terra">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span className="h-px w-0 bg-terra transition-all duration-500 group-data-[active=true]:w-8" />
-                <h3 className="font-display text-[clamp(1.3rem,2.8vw,2.3rem)] font-light leading-[1.1] text-ink/60 transition-colors duration-500 group-data-[active=true]:text-ink">
-                  {a}
-                </h3>
+  /* ── the pinned pass ─────────────────────────────────────────────────── */
+  return (
+    <section id="recognition" ref={root} aria-label="Recognition" className="relative overflow-x-clip bg-cream">
+      <div className="q-grid q-grid-cream" />
+
+      <div ref={panel} className="panel-h relative z-10 flex items-center">
+        <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col px-6 pb-[3vh] pt-[11vh] sm:px-10 lg:px-14">
+          <div className="grid flex-1 items-center gap-8 lg:grid-cols-12 lg:gap-14">
+            {/* ── the words, held still ─────────────────────────────────── */}
+            <div className="relative lg:col-span-5">
+              {/* the oversized numeral behind the words: the drafting-paper
+                  watermark that keeps the ground from reading as bare, one
+                  per award, changing with them */}
+              <div aria-hidden="true" className="pointer-events-none absolute -left-2 -top-[7vh] select-none lg:-top-[10vh]">
+                {AWARDS.map((a) => (
+                  <span
+                    key={a.id}
+                    data-award-mark
+                    className="award-watermark absolute left-0 top-0 font-display text-[clamp(11rem,22vw,19rem)] font-light leading-[0.8] text-terra/[0.07]"
+                  >
+                    {a.number}
+                  </span>
+                ))}
               </div>
-            </li>
-          ))}
-        </ol>
+
+              <div className="relative">
+                {header}
+
+                {/* the swapping block: every award is rendered, stacked in the
+                    same place, and only one is ever opaque */}
+                <div data-award-titles className="relative mt-[5vh]">
+                  {AWARDS.map((a) => (
+                    <div key={a.id} data-award-title className="absolute inset-x-0 top-0">
+                      {words(a)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ── the pile of photographs ───────────────────────────────── */}
+            <div className="lg:col-span-7">
+              <div className="relative mx-auto aspect-[3/2] w-full max-w-[38rem] lg:max-w-none">
+                {AWARDS.map((a) => (
+                  <div
+                    key={a.id}
+                    data-award-photo
+                    className="absolute inset-0 will-change-transform"
+                  >
+                    {photo(a, 'h-full w-full')}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* two hairlines closing the panel, the same drafting device the
+              Experience section rules its hero with */}
+          <div aria-hidden="true" className="mt-[3vh] h-px w-full bg-cream-line" />
+          <ProgressRail from="01" to="03" railRef={rail} markerRef={marker} className="mt-5 flex-none" />
+        </div>
       </div>
     </section>
   )
