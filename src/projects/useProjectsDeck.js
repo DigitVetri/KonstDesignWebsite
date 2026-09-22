@@ -23,11 +23,14 @@ gsap.registerPlugin(ScrollTrigger)
  *  React re-renders the left copy and right index at most N times across a pass,
  *  never per frame.
  */
-export function useProjectsDeck(rootRef, deckRef, count, { mobile = false, onActive, onProgress } = {}) {
+export function useProjectsDeck(rootRef, deckRef, count, { mobile = false, enabled = true, onActive, onProgress } = {}) {
   useLayoutEffect(() => {
     const root = rootRef.current
     const deck = deckRef.current
-    if (!root || !deck) return
+    /* Reduced motion, and any viewport too short to pin into, renders the
+       static list instead — a different subtree, so there is no deck here to
+       build. `enabled` is a dependency, so flipping it tears this down. */
+    if (!enabled || !root || !deck) return
 
     const ctx = gsap.context((self) => {
       const cards = self.selector('[data-proj-card]')
@@ -36,20 +39,33 @@ export function useProjectsDeck(rootRef, deckRef, count, { mobile = false, onAct
          back to the first. At any point exactly five are visible — the active
          card at centre with the nearest two on each side (2 + 1 + 2) — and the
          single farthest card (±3) is parked out of sight (correction §11–14). */
-      const ANGLE = mobile ? 20 : 32 // rotateY per step (deg)
+      const ANGLE = mobile ? 26 : 44 // rotateY per step (deg) — the boards stand at a real angle
+      /* Doubling that for the outer pair would turn them almost edge-on, which
+         reads as a sliver rather than a photograph standing behind. The lean
+         is capped so the far boards still show their face. */
+      const ANGLE_MAX = mobile ? 40 : 62
+      /* How far out a card stays visible. A phone has room for the active card
+         and one neighbour peeking on each side; the pair beyond that would be
+         slivers fighting for the same few pixels, so they are parked. A wide
+         screen keeps the full 2 + 1 + 2 recession. */
+      const REACH = mobile ? 1.55 : 2.55
       const SCALE = 0.22 // scale lost per step — sides stay clearly smaller
       const FADE = 0.34 // opacity lost per step
 
       /* The fan is measured off the board itself rather than hard-coded, so the
-         spread stays proportional at any viewport: wide enough that the sides
-         sit apart with real space between them, tight enough that the second
-         pair stays on screen — the 2 + 1 + 2 arrangement must always hold. */
+         spread stays proportional at any viewport — and, crucially, so that it
+         stays INSIDE the board. The board is one column of the panel: the copy
+         has its own column to the left and the rail its own lane to the right,
+         and a fan wider than the board would sail straight over both.
+         Perspective foreshortening pulls the outer pair back toward the middle
+         (a card at -2·DEPTH lands at roughly 0.57 of its flat offset), so the
+         widest card still settles well short of the board's edge. */
       let GAP = 0
       let DEPTH = 0
       const measure = () => {
         const w = deck.offsetWidth || 400
-        GAP = w * (mobile ? 0.42 : 0.86)
-        DEPTH = w * (mobile ? 0.45 : 0.55)
+        GAP = w * (mobile ? 0.19 : 0.30)
+        DEPTH = w * (mobile ? 0.40 : 0.50)
       }
       measure()
 
@@ -71,10 +87,10 @@ export function useProjectsDeck(rootRef, deckRef, count, { mobile = false, onAct
           const a = Math.abs(offset)
           const capped = Math.min(a, 2)
           const dir = Math.sign(offset)
-          const visible = a <= 2.55
+          const visible = a <= REACH
           const x = offset * GAP
           const z = -capped * DEPTH
-          const ry = -dir * capped * ANGLE
+          const ry = -dir * Math.min(capped * ANGLE, ANGLE_MAX)
           const scale = 1 - capped * SCALE
           const opacity = visible ? Math.max(0, 1 - capped * FADE) : 0
           el.style.transform = `translate3d(${x}px,0,${z}px) rotateY(${ry}deg) scale(${scale})`
@@ -123,5 +139,5 @@ export function useProjectsDeck(rootRef, deckRef, count, { mobile = false, onAct
       if (root) delete root.__deckTo
       ctx.revert()
     }
-  }, [rootRef, deckRef, count, mobile, onActive, onProgress])
+  }, [rootRef, deckRef, count, mobile, enabled, onActive, onProgress])
 }

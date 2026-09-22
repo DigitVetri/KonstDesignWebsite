@@ -1,6 +1,9 @@
 import { useRef } from 'react'
 import { useScrollReveal } from '../hooks/useScrollReveal.js'
-import { FOOTER, EMAIL, PHONE_PRIMARY, PHONE_SECONDARY } from '../data/studio.js'
+import { FOOTER, EMAIL, STUDIOS } from '../data/studio.js'
+
+/** the studios' own numbers, de-duplicated, in the order the studios are listed */
+const STUDIO_PHONES = [...new Set(STUDIOS.map((s) => s.phone).filter(Boolean))]
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -56,8 +59,11 @@ export function SiteFooter({ reduced = false }) {
           <div>
             <p className="font-sans text-[12px] tracking-label text-bone/60">CONTACT</p>
             <ul className="mt-5 space-y-3">
-              <li><a href={`tel:${PHONE_PRIMARY.replace(/\s+/g, '')}`} className="font-sans text-[16px] font-light text-bone/70 transition-colors hover:text-bone">{PHONE_PRIMARY}</a></li>
-              <li><a href={`tel:${PHONE_SECONDARY.replace(/\s+/g, '')}`} className="font-sans text-[16px] font-light text-bone/70 transition-colors hover:text-bone">{PHONE_SECONDARY}</a></li>
+              {/* every studio line the data holds, in studio order, so a number
+                  added to a studio reaches the footer with it */}
+              {STUDIO_PHONES.map((ph) => (
+                <li key={ph}><a href={`tel:${ph.replace(/\s+/g, '')}`} className="font-sans text-[16px] font-light text-bone/70 transition-colors hover:text-bone">{ph}</a></li>
+              ))}
               <li><a href={`mailto:${EMAIL}`} className="font-sans text-[16px] font-light text-bone/70 transition-colors hover:text-bone">{EMAIL}</a></li>
             </ul>
           </div>
@@ -85,7 +91,7 @@ export function SiteFooter({ reduced = false }) {
         {/* ── baseline ─────────────────────────────────────────────────── */}
         <div data-reveal className="mt-14 flex flex-col gap-3 border-t border-bone/12 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-sans text-[12px] tracking-label text-bone/60">
-            © {new Date().getFullYear()} KONST DESIGN · COIMBATORE · BENGALURU · SEELAPADI
+            © {new Date().getFullYear()} KONST DESIGN · {STUDIOS.map((s) => s.city.toUpperCase()).join(' · ')}
           </p>
           <p className="font-sans text-[12px] tracking-label text-bone/60">
             ARCHITECTURE · INTERIORS · 3D

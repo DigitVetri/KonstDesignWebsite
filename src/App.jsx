@@ -5,6 +5,7 @@ import { Quote } from './components/Quote.jsx'
 import { Services } from './components/Services.jsx'
 import { Projects } from './components/Projects.jsx'
 import { Experience } from './components/Experience.jsx'
+import { StudioNetwork } from './components/StudioNetwork.jsx'
 import { Recognition } from './components/Recognition.jsx'
 import { HowWeWork } from './components/HowWeWork.jsx'
 import { StartProject } from './components/StartProject.jsx'
@@ -130,6 +131,8 @@ export default function App() {
             site's cream drafting-paper language, ending on the dark footer.
             Additive only; every section above is untouched. */}
         <Experience reduced={reduced} />
+        {/* the three principals, directly under the credentials row */}
+        <StudioNetwork reduced={reduced} />
         <Recognition reduced={reduced} />
         <HowWeWork reduced={reduced} />
         <StartProject reduced={reduced} />

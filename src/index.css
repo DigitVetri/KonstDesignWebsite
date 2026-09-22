@@ -512,6 +512,75 @@ section[id] { scroll-margin-top: 24px; }
 .section-heading-row > p { max-width: 32ch; font-size: 16px; line-height: 1.8; opacity: .72; }
 .services-section { background: #f5f1e9; color: var(--color-ink); }
 .service-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3.5rem 2rem; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   SERVICES — THE PINNED HORIZONTAL PASS
+   ─────────────────────────────────────────────────────────────────────────
+   The section is a full-viewport panel that ScrollTrigger pins (see
+   useServicesTimeline). Inside it the heading is held still at the top, the
+   six cards sit in a single non-wrapping row wider than the frame, and the
+   progress rail runs along the bottom. Only the track moves, and only ever by
+   `transform` — no left, no margin, nothing that would force layout mid-pass.
+
+   Under `prefers-reduced-motion`, and on a viewport too short to hold a whole
+   card, none of this is rendered: the section falls back to the plain
+   `.service-grid` layout above, unpinned and unanimated. The row is clipped by
+   `.services-frame` alone — the section itself must not clip, or it would risk
+   cutting off the panel while ScrollTrigger holds it fixed.
+   ───────────────────────────────────────────────────────────────────────── */
+.services-panel { display: flex; align-items: center; overflow: hidden; }
+.services-panel-inner { display: flex; flex-direction: column; width: 100%; height: 100%; padding-block: clamp(4.5rem, 8vh, 7rem) clamp(1.5rem, 3vh, 2.5rem); }
+.services-rail-section .section-heading { flex: 0 0 auto; margin-bottom: clamp(1.5rem, 3.5vh, 3rem); }
+
+/* The window the row travels through. `overflow: hidden` and nothing else —
+   never `overflow-x: auto`, which would put a second, competing horizontal
+   gesture on top of the page's own scroll. */
+.services-frame { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; overflow: hidden; }
+.services-track { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: clamp(1.5rem, 2.5vw, 2.75rem); will-change: transform; }
+.services-track .service-card { flex: 0 0 auto; width: var(--svc-card-w, 380px); }
+
+/* Card width is capped by the panel's height as well as its width: the image
+   keeps its 4/3 frame, so a card that is too wide is also too tall for the
+   pinned panel and the description would be cut off at the rail. */
+.services-rail-section { --svc-card-w: clamp(280px, min(26vw, 44dvh), 430px); }
+.services-track .card-description { max-width: none; }
+
+/* The shared progress rail (see ProgressRail.jsx) — Services and Awards both
+   render it, so it is defined once here and only positioned by each section. */
+.rail-progress { display: flex; align-items: center; gap: 1rem; font: 500 12px/1 var(--font-sans); letter-spacing: .14em; color: #836342; }
+.rail-progress-end { flex: 0 0 auto; }
+.rail-progress-rail { position: relative; flex: 1 1 auto; height: 24px; }
+.rail-progress-rail::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: currentColor; opacity: .3; }
+.rail-progress-mark { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 24px; height: 24px; background: var(--rail-ground, #f5f1e9); color: currentColor; will-change: transform; }
+.rail-progress-mark svg { width: 18px; height: 18px; }
+
+/* The vertical variant: the same hairline and the same marker, stood on end.
+   The owning section moves the marker along `y` instead of `x`. */
+.rail-progress-vertical { flex-direction: column; gap: .9rem; }
+.rail-progress-vertical .rail-progress-rail { width: 24px; height: auto; flex: 1 1 auto; }
+.rail-progress-vertical .rail-progress-rail::before { left: 50%; right: auto; top: 0; bottom: 0; width: 1px; height: auto; }
+
+.services-progress { flex: 0 0 auto; padding-top: clamp(1rem, 2.5vh, 2rem); }
+
+/* The Recognition watermark numeral. Absolutely stacked so all three occupy
+   the same place and only the current one is opaque; `whitespace-nowrap` keeps
+   a two-digit numeral on one line at every size. */
+.award-watermark { white-space: nowrap; will-change: transform, opacity; }
+
+/* The ground the shared rail marker sits on, per section. Cream sections use
+   the Tailwind cream token rather than the Services gallery's own ground. */
+#recognition { --rail-ground: #f2ece1; }
+
+/* A short desktop window — a 720p laptop, a browser with several toolbars —
+   has the same heading to hold still and less room to hold it in. Same words,
+   same order, set a size down so the row of cards keeps its height. */
+@media (min-width: 1024px) and (max-height: 860px) {
+  .services-panel-inner { padding-block: clamp(3.5rem, 7vh, 5rem) 1rem; }
+  .services-rail-section .section-heading { margin-bottom: 1.2rem; }
+  .services-rail-section .section-heading > .eyebrow { padding-bottom: .8rem; margin-bottom: 1rem; }
+  .services-rail-section .section-heading h2 { font-size: clamp(2.2rem, 3.4vw, 3.2rem); }
+  .services-rail-section .section-heading-row > p { font-size: 14px; line-height: 1.65; }
+}
 .image-button { position: relative; display: block; width: 100%; overflow: hidden; text-align: left; background: #2b2823; }
 .image-button img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 700ms var(--ease-settle); }
 .image-button:hover img { transform: scale(1.025); }
@@ -522,7 +591,190 @@ section[id] { scroll-margin-top: 24px; }
 .card-title h3 { font: 400 clamp(1.5rem, 2vw, 2rem)/1.1 var(--font-display); }
 .card-title button, .project-copy h3 button { text-align: left; }
 .card-description { font-size: 16px; line-height: 1.8; opacity: .7; margin-top: 1rem; max-width: 48ch; }
-.projects-section { background: #171916; color: #f3f0e9; }
+/* The section's ground: a warm, dark brown-amber rather than a neutral
+   near-black, so the gold the tags, rail and floor are drawn in reads as part
+   of the same light rather than sitting on top of a cold grey. */
+.projects-section { background: #231b14; color: #f3ece1; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   SELECTED WORK — THE PINNED COVERFLOW
+   ─────────────────────────────────────────────────────────────────────────
+   The heading reads in normal flow; below it `.projects-stage` is a tall
+   scroll area whose sticky child covers the viewport for the length of the
+   pass (see useProjectsDeck). Only the cards move, and only ever by transform
+   and opacity — the arc writes nothing that forces layout.
+
+   Under `prefers-reduced-motion`, and on a viewport too short to pin into,
+   none of this is rendered: the section falls back to the `.project-grid`
+   layout above, unpinned and unanimated.
+   ───────────────────────────────────────────────────────────────────────── */
+.projects-deck-section { padding-block: clamp(5rem, 9vw, 9rem) 0; }
+.projects-deck-section .section-heading { margin-bottom: clamp(2rem, 4vw, 3.5rem); }
+
+/* Scroll distance: one screen held, then one screen per project change.
+   Travel is `height - viewport`, which is what the deck's scrub maps 01→06. */
+.projects-stage { height: calc(var(--app-vh, 100dvh) * 6); }
+.projects-panel { position: sticky; top: 0; overflow: hidden; }
+
+
+/* The air above the floor: a broad warm lift through the middle of the frame
+   with the corners falling away, so the room has a centre of light for the
+   boards to stand in rather than one flat field of colour. */
+.projects-wash {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(75% 55% at 50% 62%, #4a382733 0%, transparent 70%),
+    radial-gradient(130% 85% at 50% 108%, #5a422b3d 0%, transparent 60%),
+    radial-gradient(120% 100% at 50% 50%, transparent 38%, #140e09b8 100%);
+}
+
+/* ── the floor ──────────────────────────────────────────────────────────
+   A single plane laid flat and viewed at a raking angle. `perspective` on the
+   frame plus `rotateX` on the plane is what makes the lines converge on a
+   horizon — the depth is the projection, not a picture of one. The plane is
+   drawn far wider and deeper than the frame so its edges never enter shot,
+   and it is masked to fade out at the horizon and again at the bottom, so it
+   reads as ground continuing past the viewer rather than a rug.
+
+   Held low in contrast on purpose: it is the air the photographs hang in. */
+.projects-floor {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  /* The horizon sits about two thirds down, just under where the boards
+     stand, so the ground reads as the surface they are placed on rather than
+     as a wall of grid behind them. */
+  height: 33%;
+  pointer-events: none;
+  overflow: hidden;
+  perspective: 250px;
+  perspective-origin: 50% 0%;
+}
+.projects-floor-plane {
+  /* Hinged on its NEAR edge — the bottom of the frame, closest to the reader
+     — so the rest of it tips away and runs off toward the horizon the
+     perspective origin sets at the top. It is drawn very wide and very deep
+     so neither its sides nor its far end ever come into shot, and its cells
+     are stated in pixels: they are uniform in the plane's own space, and the
+     projection is what makes them converge. */
+  position: absolute;
+  left: -80%; right: -80%; bottom: 0;
+  height: 340%;
+  transform: rotateX(79deg);
+  transform-origin: 50% 100%;
+  /* Soft warm line, wide cell: the ground should be read, not counted. */
+  background-image:
+    repeating-linear-gradient(to right, rgba(198, 164, 118, 0.26) 0 1px, transparent 1px 104px),
+    repeating-linear-gradient(to bottom, rgba(198, 164, 118, 0.2) 0 1px, transparent 1px 86px);
+  /* One mask only — two layers would need `mask-composite`, whose keywords
+     differ between engines. The sideways falloff lives in the wash above
+     instead, where it is a plain gradient and cannot be misread. */
+  -webkit-mask-image: linear-gradient(to top, #000 0%, #000 28%, transparent 78%);
+  mask-image: linear-gradient(to top, #000 0%, #000 28%, transparent 78%);
+}
+/* the light lying along the horizon the plane runs to */
+.projects-floor-horizon {
+  position: absolute; left: 0; right: 0; top: 0; height: 46%;
+  background: radial-gradient(60% 100% at 50% 0%, #c6a4762e 0%, transparent 76%);
+}
+
+.projects-panel-inner {
+  position: relative; z-index: 2;
+  display: grid; height: 100%; align-items: center;
+  /* The board takes the lion's share: the photographs are the section, and
+     the copy needs only enough width to set a title and a short paragraph. */
+  grid-template-columns: minmax(0, .74fr) minmax(0, 1.95fr) 28px;
+  grid-template-areas: 'copy board rail';
+  gap: clamp(1.25rem, 2.2vw, 2.75rem);
+  padding-block: clamp(2rem, 5vh, 4rem);
+}
+
+/* ── the copy, swapping with the centre card ────────────────────────────
+   All six blocks occupy the same place; the deck's own scrubbed frame lights
+   whichever one is centred, so the words can never disagree with the photo. */
+.projects-copy-stage { grid-area: copy; position: relative; z-index: 2; height: 100%; min-height: 0; }
+/* each block fills the column and centres its own words, so all six sit on the
+   same baseline whatever their description runs to */
+.projects-copy-block { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; will-change: transform, opacity; }
+.projects-copy-block .eyebrow { color: #c8b99e; margin-bottom: .8rem; }
+.projects-copy-block h3 { font: 400 clamp(1.8rem, 2.9vw, 3rem)/1.08 var(--font-display); }
+/* the title is a button, and a button centres its text by default — the rest
+   of the block is ragged-right, so the title must be too */
+.projects-copy-block h3 button { text-align: left; }
+.projects-copy-block .card-description { max-width: 40ch; opacity: .78; }
+
+/* ── the arc ───────────────────────────────────────────────────────────── */
+.projects-board {
+  grid-area: board; position: relative;
+  height: 100%; min-height: 0;
+  perspective: 1150px; perspective-origin: 50% 50%;
+  /* The board is the arc's whole world. Clipping to it is the guarantee the
+     geometry alone should not have to carry: whatever the fan does, it can
+     never reach the copy column on one side or the progress rail on the
+     other. The card is sized as a share of the board for the same reason —
+     a percentage cannot drift out of proportion with the space it has. */
+  overflow: hidden;
+  --proj-card-w: 64%;
+}
+.projects-card {
+  position: absolute; left: 50%; top: 50%;
+  width: var(--proj-card-w); margin-left: calc(var(--proj-card-w) / -2);
+  transform: translate3d(0,0,0);
+  will-change: transform, opacity;
+  /* The card's box hangs from the board's centre line and its content is
+     pulled up half its own height, which centres it without anyone having to
+     measure it. The origin is moved to that same line so the arc's scale and
+     rotateY pivot through the middle of the photograph rather than below it. */
+  transform-origin: 50% 0;
+}
+.projects-card > * { display: block; transform: translateY(-50%); }
+
+/* ── the card as a printed board ────────────────────────────────────────
+   The face carries the photograph and its caption bar; a second face sits a
+   few millimetres behind it in Z. When the arc rotates a card, that gap opens
+   into a visible edge — the thickness is real geometry, not a drawn shadow.
+   `preserve-3d` is what keeps the two faces in the same space. */
+.projects-card-hit {
+  position: relative; display: block; width: 100%; text-align: left; color: inherit;
+  transform-style: preserve-3d;
+}
+.projects-card-slab {
+  position: absolute; inset: 0;
+  transform: translateZ(-11px);
+  background: linear-gradient(to bottom, #3d2c1e, #1c130d);
+  box-shadow: 0 34px 80px -34px #000000cc;
+}
+.projects-card-face { position: relative; display: block; transform-style: preserve-3d; }
+.projects-card-shot { position: relative; display: block; aspect-ratio: 4/3; overflow: hidden; background: #241a12; }
+.projects-card-shot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* the numbered chip, sitting proud of the board's top-left corner */
+.projects-card-tag {
+  position: absolute; left: -.55rem; top: -.75rem; z-index: 2;
+  min-width: 2.1rem; padding: .5rem .55rem;
+  background: #c9a577; color: #231810;
+  font: 600 12px/1 var(--font-sans); letter-spacing: .12em; text-align: center;
+  box-shadow: 0 8px 20px -10px #000000a8;
+}
+
+/* the solid caption bar along the board's foot */
+.projects-card-bar {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem;
+  padding: .85rem 1rem .9rem;
+  background: #1d150ff2;
+}
+.projects-card-lines { display: block; min-width: 0; }
+.projects-card-name { display: block; font: 400 clamp(1rem, 1.3vw, 1.3rem)/1.2 var(--font-display); color: #f3ece1; }
+.projects-card-meta { display: block; margin-top: .3rem; font: 400 11px/1 var(--font-sans); letter-spacing: .16em; text-transform: uppercase; color: #bda58a; }
+.projects-card-open {
+  flex: 0 0 auto; align-self: flex-end;
+  font: 500 11px/1 var(--font-sans); letter-spacing: .18em; text-transform: uppercase; color: #c9a577;
+  opacity: 0; transition: opacity 360ms var(--ease-settle);
+}
+/* only the board at centre invites a click */
+[data-centre='true'] .projects-card-open { opacity: 1; }
+
+/* ── the rail, on the right edge ───────────────────────────────────────── */
+.projects-rail { grid-area: rail; position: relative; z-index: 2; height: min(58%, 26rem); align-self: center; color: #c9b99d; }
+.projects-deck-section { --rail-ground: #231b14; }
 .projects-section .section-heading > .eyebrow { color: #c9b99d; border-color: #f3f0e930; }
 .project-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 4.5rem 2.5rem; }
 .project-card .image-button { aspect-ratio: 4/3; }
@@ -589,11 +841,58 @@ footer { overflow-wrap: anywhere; }
   .desktop-navigation { display: none; }
   .menu-toggle { display: flex; }
   .service-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+
+  /* The arc keeps its shape but stops reaching across a wide screen: the
+     board sits over the copy, and only the immediate neighbour peeks on each
+     side (the deck narrows its own fan at this breakpoint too). */
+  .projects-stage { height: calc(var(--app-vh, 100dvh) * 4.6); }
+  .projects-panel-inner {
+    grid-template-columns: minmax(0, 1fr) 26px;
+    grid-template-areas: 'board rail' 'copy rail';
+    /* both rows share the panel: the copy blocks are absolutely placed, so
+       an `auto` row would collapse to nothing and hand the board everything */
+    grid-template-rows: minmax(0, 1fr) minmax(0, .82fr);
+    gap: 1.25rem 1.25rem;
+  }
+  .projects-board { --proj-card-w: 76%; }
+  /* A coarser, quieter floor on a phone: the same plane with fewer lines to
+     rasterise, held back a little because the copy block sits over it here
+     rather than beside it. */
+  .projects-floor { height: 32%; perspective: 200px; opacity: .72; }
+  .projects-floor-plane {
+    background-image:
+      repeating-linear-gradient(to right, rgba(198, 164, 118, 0.24) 0 1px, transparent 1px 64px),
+      repeating-linear-gradient(to bottom, rgba(198, 164, 118, 0.18) 0 1px, transparent 1px 56px);
+  }
+  .projects-rail { height: 100%; max-height: none; }
+  .projects-copy-block .card-description { max-width: none; }
+  /* One card, plus the edge of the next, so the row reads as a row that
+     continues rather than a single slide. The `dvh` term is what keeps the
+     card inside the pinned panel: the image holds its 4/3 frame, so a card
+     too wide for the viewport's height would push its own description out
+     under the progress rail. */
+  .services-rail-section { --svc-card-w: min(64vw, 40dvh, 360px); }
+
+  /* The heading is held still for the whole pass, so on a short screen it
+     is competing with the cards for height. Same words, same order, set a
+     size down — and side by side rather than stacked once there is room. */
+  .services-rail-section .section-heading > .eyebrow { padding-bottom: .9rem; margin-bottom: 1.2rem; }
+  .services-rail-section .section-heading h2 { font-size: clamp(2rem, 5.4vw, 2.9rem); }
+  .services-rail-section .section-heading-row { gap: .9rem; }
+  .services-rail-section .section-heading-row > p { max-width: 52ch; font-size: 14px; line-height: 1.65; }
   .project-featured { grid-template-columns: 1fr; gap: 1.5rem; }
   .section-heading-row { align-items: start; flex-direction: column; gap: 1.5rem; }
 }
 @media (max-width: 600px) {
   .service-grid, .project-grid { grid-template-columns: 1fr; gap: 3rem; }
+  .projects-board { --proj-card-w: 80%; }
+  .projects-copy-block h3 { font-size: 1.65rem; }
+  .projects-copy-block .card-description { font-size: 14px; line-height: 1.7; }
+  /* the caption bar is a solid slab now — tighten it, don't detach it */
+  .projects-card-bar { padding: .6rem .7rem .65rem; }
+  .projects-card-tag { min-width: 1.8rem; padding: .4rem .45rem; left: -.4rem; top: -.55rem; }
+  .services-rail-section { --svc-card-w: min(78vw, 42dvh, 330px); }
+  .rail-progress { gap: .75rem; font-size: 11px; }
   .project-featured { padding-bottom: 2.5rem; }
   .home-opening-copy { bottom: 7rem; }
   .home-opening-copy h1 { font-size: clamp(2.5rem, 10.4vw, 4rem); }

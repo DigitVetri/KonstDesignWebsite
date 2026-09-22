@@ -128,7 +128,7 @@ export function Experience({ reduced = false }) {
                 With more than 14 years of experience, KONST DESIGN brings together architectural thinking, interior design and 3D visualization to create spaces that are functional, beautiful and personal.
               </p>
               <p data-para className="font-sans text-[16px] font-light leading-[1.8] text-ink/70 sm:text-[16px]">
-                We work from Coimbatore, Bengaluru and Seelapadi across residential, retail and commercial projects — drawing, detailing and seeing each one through to handover.
+                We work from Coimbatore, Bengaluru, Dindigul and Chennai across residential, retail and commercial projects — drawing, detailing and seeing each one through to handover.
               </p>
             </div>
           </div>

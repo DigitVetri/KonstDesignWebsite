@@ -13,6 +13,8 @@
     "services": "node scripts/make-services.mjs",
     "projects": "node scripts/make-projects.mjs",
     "principles": "node scripts/make-principles.mjs",
+    "network": "node scripts/make-network.mjs",
+    "awards": "node scripts/make-awards.mjs",
     "home:frames": "node scripts/make-home-frames.mjs",
     "test:home": "node scripts/test-home-frames.mjs"
   },
