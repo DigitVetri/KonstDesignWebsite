@@ -433,6 +433,46 @@ html[data-cursor-mode='custom'] * {
   right: 1.25rem;
   max-width: 64rem;
 }
+.home-film-sub {
+  margin-top: 0.75rem;
+  max-width: 34ch;
+  font: 300 italic clamp(0.88rem, 1.5vw, 1.15rem)/1.45 var(--font-display);
+  color: rgb(237 231 222 / 78%);
+  text-shadow: 0 2px 16px rgb(8 7 6 / 90%);
+}
+
+/* ── legibility scrims ──────────────────────────────────────────────────
+   The picture is full-bleed at every size, so every piece of type on the
+   hero sits over the film. These two gradients are what make that readable;
+   they deepen as the viewport narrows, because a phone gives the caption a
+   far larger share of the frame to hold down. */
+.home-scrim {
+  position: absolute;
+  inset-inline: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.home-scrim-top {
+  top: 0;
+  height: 24vh;
+  background: linear-gradient(to bottom, rgb(8 7 6 / 72%), rgb(8 7 6 / 28%) 55%, transparent);
+}
+.home-scrim-bottom {
+  bottom: 0;
+  height: 40vh;
+  background: linear-gradient(to top, rgb(8 7 6 / 78%), rgb(8 7 6 / 36%) 42%, rgb(8 7 6 / 8%) 76%, transparent);
+}
+/* A pool of shade under the closing title only — the last frames of the room
+   film are the brightest in either film, and the type lands straight across
+   them. Its opacity is driven by the title's own arrival, so it exists for
+   those few seconds of scroll and nowhere else. */
+.home-scrim-close {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  background: radial-gradient(ellipse 68% 50% at 50% 46%, rgb(8 7 6 / 66%), rgb(8 7 6 / 34%) 52%, transparent 78%);
+}
 .home-film-eyebrow {
   display: flex;
   align-items: center;
@@ -471,20 +511,30 @@ html[data-cursor-mode='custom'] * {
 }
 .home-film-chapters span { display: flex; align-items: center; gap: 0.7rem; transition: opacity 200ms; }
 .home-film-chapters i { width: 24px; height: 1px; background: var(--color-brass); }
+/* A phone gets the film full-bleed. The frames it loads are the `tall` tier —
+   a 4:5 crop composed for an upright screen — so filling the viewport is a
+   proper picture rather than a sliver of a 16:9 frame, and the hero reads as
+   one image instead of a letterboxed panel floating on black. */
 @media (max-width: 700px), (max-aspect-ratio: 3/4) {
-  .home-film-picture {
-    top: 16%;
-    bottom: auto;
-    height: auto;
-    aspect-ratio: 4 / 3;
-    max-height: 51%;
-    border-block: 1px solid rgb(237 231 222 / 15%);
-  }
-  .home-film-caption { bottom: 6rem; }
-  .home-film-heading { font-size: clamp(2.1rem, 7.5vw, 4rem); }
+  .home-film-caption { bottom: 5.5rem; }
+  .home-film-heading { font-size: clamp(2.1rem, 8vw, 3.6rem); }
+  .home-film-sub { margin-top: 0.55rem; font-size: 0.95rem; }
   .home-film-eyebrow { margin-bottom: 0.7rem; }
   .home-film-chapters { bottom: 1.5rem; gap: 1.4rem; font-size: 8px; }
   .home-film-cue { bottom: 3.5rem; }
+  .home-scrim-top { height: 20vh; background: linear-gradient(to bottom, rgb(8 7 6 / 80%), rgb(8 7 6 / 34%) 52%, transparent); }
+  .home-scrim-close { background: radial-gradient(ellipse 96% 42% at 50% 42%, rgb(8 7 6 / 72%), rgb(8 7 6 / 40%) 55%, transparent 82%); }
+  .home-scrim-bottom { height: 46vh; background: linear-gradient(to top, rgb(8 7 6 / 88%), rgb(8 7 6 / 58%) 30%, rgb(8 7 6 / 12%) 72%, transparent); }
+}
+
+/* Landscape on a short screen: the caption and the closing scene would meet
+   in the middle, so the caption loses its supporting line and tucks in. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .home-film-sub { display: none; }
+  .home-film-caption { bottom: 3.25rem; }
+  .home-film-heading { font-size: clamp(1.6rem, 5vw, 2.6rem); }
+  .home-film-chapters { display: none; }
+  .home-film-end-actions { margin-top: 1.25rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .home-film-chapters { display: none; }
@@ -617,11 +667,3 @@ footer { overflow-wrap: anywhere; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
-/* Matched room reconstructions: keep both photographs on the same pixel grid. */
-.home-room-still {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}

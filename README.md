@@ -311,10 +311,18 @@ scrolls to `#about`, the rest are decorative.
 
 The home uses individual WebP frames rendered to canvas. The original films stay
 in `public/assets/video`; `npm run home:frames` rebuilds the 240 frames per film
-at 1920×1080 and 960×540 (requires FFmpeg). The 1080p version is a Lanczos upscale
-with modest contrast and luma sharpening, not native 1080p or generated detail.
-Only the selected size is loaded, with three concurrent decodes and a bounded
-nearby-frame cache. Posters remain visible if images are unavailable.
+in three sizes: 2560×1440 desktop, 1440×810 small landscape, and 1200×1500
+portrait (requires FFmpeg). Exports use the original 720p films directly, avoiding
+the extra compression in the scroll-video derivatives. Lanczos enlargement and
+the existing colour/sharpening treatment preserve the imagery; these are upscaled
+exports, not native 1440p or generated detail. WebP quality is 92 (90 for small).
+`src/home/frameQuality.js` keeps the encoder and renderer dimensions in sync.
+Only the selected size is loaded, with four concurrent decodes and a bounded
+nearby-frame cache (12 desktop, 24 small, 20 portrait frames). Canvas resolution
+accounts for device pixel density and both axes of the cover crop, and settled
+frames avoid redundant paints. Higher-quality frames cost more bandwidth;
+nearby frames are prefetched, rather than decoding the entire sequence in memory.
+Posters remain visible if images are unavailable.
 
 `npm run test:home` checks decode scheduling, reversal, resize, error handling,
 cleanup, and timeline boundaries. Reduced motion displays the final still.

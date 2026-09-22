@@ -14,8 +14,20 @@ const BRAND_SUB = 'Architecture · Interior Designs'
 
 /** Scroll budget for the whole sequence, in viewport heights. Long on purpose:
  *  the films must have room to be read frame by frame, and the burn needs room
- *  to be watched rather than flicked past. */
-const TRACK_VH = { wide: 640, narrow: 540 }
+ *  to be watched rather than flicked past.
+ *
+ *  A phone gets a shorter track, not because there is less to see but because
+ *  a thumb covers far more of it per flick — the same budget in viewport
+ *  heights is a much longer scroll in finger-distance. */
+const TRACK_VH = { wide: 620, narrow: 480 }
+
+/** Which cut of the films to load. The tiers are different CROPS, not just
+ *  different sizes: `tall` is a 4:5 frame composed for a phone held upright,
+ *  so a full-screen hero on a phone shows a picture made for that shape rather
+ *  than a 16:9 frame with most of its width cut away. */
+const tierFor = (viewport) => (viewport?.portrait ? 'tall' : viewport?.mobile ? 'small' : 'wide')
+const frameUrl = (film, tier, index) =>
+  `/assets/home-frames/${film}/${tier}/${String(index).padStart(3, '0')}.webp`
 
 const goTo = (id) => (e) => {
   e.preventDefault()
@@ -32,7 +44,7 @@ export function HomeFilms({ viewport, reduced = false }) {
   const opening = useRef(null)
   const openingCopy = useRef(null)
   const filmOne = useRef(null)
-  const furnished = useRef(null)
+  const filmTwo = useRef(null)
   const layerTwo = useRef(null)
   const chapters = useRef(null)
   const mark = useRef(null)
@@ -40,20 +52,28 @@ export function HomeFilms({ viewport, reduced = false }) {
   const progressBar = useRef(null)
   const scrollCue = useRef(null)
   const ending = useRef(null)
+  const closeScrim = useRef(null)
   const narrow = viewport?.mobile || viewport?.portrait
+  const tier = tierFor(viewport)
 
   useLayoutEffect(() => {
     const el = root.current
     const v1 = filmOne.current
-    const finishedRoom = furnished.current
+    const v2 = filmTwo.current
     const svg = mark.current
-    if (!el || !v1 || !finishedRoom || !svg) return
+    if (!el || !v1 || !v2 || !svg) return
 
     const ctx = gsap.context((self) => {
       if (reduced) {
         v1.style.opacity = '0'
+        v2.style.opacity = '0'
       }
-      const one = reduced ? null : attachFrameRenderer(v1, { film: 'film-one', small: narrow })
+      /* Two ladders, one shot. Film two is scrubbed exactly the way film one
+         is — the room is a film, not a wipe between two photographs, which is
+         what used to leave the second half of the hero standing still while
+         the reader kept scrolling. */
+      const one = reduced ? null : attachFrameRenderer(v1, { film: 'film-one', tier })
+      const two = reduced ? null : attachFrameRenderer(v2, { film: 'film-two', tier })
 
       /* everything the burn writes to, looked up once */
       const eaten = svg.querySelector('[data-burn-eaten]')
@@ -92,13 +112,23 @@ export function HomeFilms({ viewport, reduced = false }) {
         openingCopy.current.querySelectorAll('a').forEach(a => { a.tabIndex = intro > 0.6 ? 0 : -1 })
         const f = frameAt(p)
 
-        one?.seek(f.filmOne, 1 + 0.018 * f.filmOne)
+        /* A drift of a couple of percent across each film's own beat. It is
+           never enough to read as a zoom; it is there so that the picture is
+           still alive at the moments the playhead is nearly still. */
+        one?.seek(f.filmOne, 1 + 0.02 * f.filmOne)
         progressBar.current.style.transform = `scaleX(${raw})`
         scrollCue.current.style.opacity = String(1 - Math.min(1, raw / 0.035))
-        // A spatial reveal keeps surfaces sharp; no ghosting between rooms.
-        const reveal = finishedRoom.complete && finishedRoom.naturalWidth ? f.interiorReveal : 0
-        finishedRoom.style.clipPath = `inset(0 ${(1 - reveal) * 100}% 0 0)`
+
+        /* Film two is decoded from the moment the dissolve starts, so it is
+           already moving when it becomes visible rather than snapping in. */
+        if (f.fadeTwo > 0 || p > BEAT.filmTwo[0] - 0.05) {
+          two?.seek(f.filmTwo, 1 + 0.02 * f.filmTwo)
+        }
         layerTwo.current.style.opacity = String(f.fadeTwo)
+        // Once the second film is opaque the first is only costing fill rate.
+        layerTwo.current.style.visibility = f.fadeTwo > 0.002 ? 'visible' : 'hidden'
+        v1.style.visibility = f.fadeTwo > 0.998 ? 'hidden' : 'visible'
+
         const labels = chapters.current.children
         labels[0].style.opacity = p < BEAT.cross[1] ? '1' : '0.38'
         labels[1].style.opacity = p >= BEAT.cross[0] ? '1' : '0.38'
@@ -150,6 +180,11 @@ export function HomeFilms({ viewport, reduced = false }) {
         }
 
         /* ── the closing scene ────────────────────────────────────────── */
+        /* The last frames of the room are the brightest in either film, and
+           the closing type sits right across them. A soft pool of shade,
+           tied to the type's own arrival, carries it without dulling the
+           picture anywhere else or at any other point in the scroll. */
+        closeScrim.current.style.opacity = String(f.endTitle)
         const ends = [f.endTitle, f.endSub, f.endCta1, f.endCta2]
         for (let i = 0; i < endEls.length; i++) {
           endEls[i].style.opacity = String(ends[i])
@@ -181,18 +216,17 @@ export function HomeFilms({ viewport, reduced = false }) {
       })
 
       // Restore deep links immediately; ease only subsequent user scroll.
-      finishedRoom.addEventListener('load', schedule)
       progress = targetProgress = st.progress
       schedule()
       return () => {
         cancelAnimationFrame(raf)
         one?.dispose()
-        finishedRoom.removeEventListener('load', schedule)
+        two?.dispose()
       }
     }, root)
 
     return () => ctx.revert()
-  }, [reduced, narrow])
+  }, [reduced, tier])
 
   return (
     <section
@@ -203,11 +237,22 @@ export function HomeFilms({ viewport, reduced = false }) {
     >
       <div className="sticky top-0 panel-h w-full overflow-hidden bg-ink">
         <div className="home-film-picture">
-          <div className="home-film-layer" style={{ backgroundImage: "url('/assets/home-frames/film-one/" + (narrow ? 'small' : 'wide') + "/000.webp')" }}>
+          {/* Each layer carries its film's own first frame as a poster, so the
+              picture is right from the first paint and stays right through a
+              resize, when the canvas backing store is cleared. */}
+          <div className="home-film-layer" style={{ backgroundImage: `url('${frameUrl('film-one', tier, 0)}')` }}>
             <canvas ref={filmOne} className="home-film-canvas" aria-hidden="true" style={{ opacity: 0 }} />
           </div>
-          <div ref={layerTwo} className="home-film-layer" style={{ opacity: reduced ? 1 : 0, backgroundImage: "url('/assets/rooms/interior-empty.png')" }}>
-            <img ref={furnished} src="/assets/rooms/interior-furnished.png" alt="" aria-hidden="true" width="1774" height="887" decoding="async" className="home-room-still" style={{ clipPath: reduced ? 'inset(0)' : 'inset(0 100% 0 0)' }} />
+          <div
+            ref={layerTwo}
+            className="home-film-layer"
+            style={{
+              opacity: reduced ? 1 : 0,
+              visibility: reduced ? 'visible' : 'hidden',
+              backgroundImage: `url('${frameUrl('film-two', tier, reduced ? 239 : 0)}')`,
+            }}
+          >
+            <canvas ref={filmTwo} className="home-film-canvas" aria-hidden="true" style={{ opacity: 0 }} />
           </div>
         </div>
         <div ref={opening} className="home-opening-image" aria-hidden="true"><img src="/assets/services/visiting-room.webp" alt="" width="1600" height="900" fetchPriority="high" /></div>
@@ -230,15 +275,11 @@ export function HomeFilms({ viewport, reduced = false }) {
           <span className="relative h-9 w-px overflow-hidden bg-white/20"><span className="home-film-cue-line absolute inset-x-0 top-0 h-4 bg-brass" /></span>
         </div>
 
-        {/* legibility scrims — top for the chrome, bottom for the caption */}
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[22vh]"
-          style={{ background: 'linear-gradient(to bottom, rgba(8,7,6,0.72), rgba(8,7,6,0.28) 55%, transparent)' }}
-        />
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[30vh]"
-          style={{ background: 'linear-gradient(to top, rgba(8,7,6,0.68), rgba(8,7,6,0.12) 55%, transparent)' }}
-        />
+        {/* legibility scrims — top for the chrome, bottom for the caption.
+            They carry the full-bleed picture on a phone, where the type sits
+            over the film rather than beneath it. */}
+        <div aria-hidden="true" className="home-scrim home-scrim-top" />
+        <div aria-hidden="true" className="home-scrim home-scrim-bottom" />
 
         {/* the branding + navigation, over the sequence */}
         <header className="pointer-events-none absolute inset-x-0 top-0 z-30">
@@ -278,7 +319,7 @@ export function HomeFilms({ viewport, reduced = false }) {
               <p className="home-film-heading">
                 {q.heading}
               </p>
-              <p className="mt-2 max-w-[34ch] font-display text-[clamp(0.82rem,1.5vw,1.15rem)] font-light italic leading-snug text-bone/75 [text-shadow:0_2px_16px_rgba(8,7,6,0.9)] sm:mt-3">
+              <p className="home-film-sub">
                 {q.sub}
               </p>
             </div>
@@ -286,6 +327,7 @@ export function HomeFilms({ viewport, reduced = false }) {
         </div>
 
         {/* ── the closing scene, at the end of the second film ──────────── */}
+        <div ref={closeScrim} aria-hidden="true" className="home-scrim-close" style={{ opacity: 0 }} />
         <div
           ref={ending}
           style={{ pointerEvents: 'none' }}
@@ -309,7 +351,7 @@ export function HomeFilms({ viewport, reduced = false }) {
           >
             Architecture, 3D design, visualization
           </p>
-          <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
+          <div className="home-film-end-actions mt-9 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
             <a
               data-end="cta1"
               tabIndex={-1}
