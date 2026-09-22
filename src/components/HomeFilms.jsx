@@ -21,11 +21,33 @@ const BRAND_SUB = 'Architecture · Interior Designs'
  *  heights is a much longer scroll in finger-distance. */
 const TRACK_VH = { wide: 620, narrow: 480 }
 
-/** Which cut of the films to load. The tiers are different CROPS, not just
- *  different sizes: `tall` is a 4:5 frame composed for a phone held upright,
- *  so a full-screen hero on a phone shows a picture made for that shape rather
- *  than a 16:9 frame with most of its width cut away. */
-const tierFor = (viewport) => (viewport?.portrait ? 'tall' : viewport?.mobile ? 'small' : 'wide')
+/** Which cut of the films to load — a question of how many pixels the device
+ *  can usefully decode, and nothing else. Both tiers are the SAME 16:9 frame;
+ *  `small` is simply fewer pixels of it.
+ *
+ *  There is a third export, `tall`, which is not used. It is a 4:5 centre crop
+ *  cut for phones, and it was the wrong answer to the right problem: 16:9
+ *  trimmed to 4:5 keeps 45% of the width, and the panel then cropped that
+ *  again, so a phone was shown about a quarter of the shot — the middle of a
+ *  room with both walls gone, or a building plot with the building cut off
+ *  either side. The shape of the screen is handled by `fitFor` below now, on
+ *  the whole frame, rather than by throwing the sides away before it ships. */
+const tierFor = (viewport) => (viewport?.mobile ? 'small' : 'wide')
+
+/** How that frame meets the panel. The panel is the full viewport, so on a
+ *  landscape screen it is nearly the frame's own shape and `cover` costs a few
+ *  percent of the margins — which is the desktop behaviour, and stays exactly
+ *  that. Stood upright the panel is about 0.46 against the frame's 1.78, where
+ *  `cover` is not a crop but a different picture; there the whole frame is
+ *  fitted inside the panel instead and the section's ink shows above and
+ *  below it. `portrait` is the existing test for that shape, so a phone on its
+ *  side and every desktop keep the framing they already had. */
+const fitFor = (viewport) => (viewport?.portrait ? 'contain' : 'cover')
+
+/** The drift's ceiling — see `DRIFT` at the seek sites. `contain` divides it
+ *  out so the frame is whole at full zoom instead of drifting its own edges
+ *  off the panel. */
+const MAX_DRIFT = 1.02
 const frameUrl = (film, tier, index) =>
   `/assets/home-frames/${film}/${tier}/${String(index).padStart(3, '0')}.webp`
 
@@ -34,8 +56,18 @@ const goTo = (id) => (e) => {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+/**
+ * The closing pair of calls to action.
+ *
+ * Every size here is stated twice: once for a phone, and once from `sm` up,
+ * where the original values are restored unchanged. A phone gets a shorter
+ * button (12px of padding above and below rather than 16) on a smaller label,
+ * and — the part that was actually wrong — `w-full`, so the two of them are
+ * one width instead of sizing to their own text and landing two pixels apart
+ * down the middle of the screen.
+ */
 const CTA_BASE =
-  'group inline-flex items-center justify-center gap-3 px-7 py-4 font-sans text-[12px] tracking-label transition-colors duration-500'
+  'group inline-flex w-full items-center justify-center gap-3 px-5 py-3 font-sans text-[11px] tracking-label transition-colors duration-500 sm:w-auto sm:gap-3 sm:px-7 sm:py-4 sm:text-[12px]'
 
 /** A single eased scroll coordinate controls sharp image frames, type and burn.
  * Direct image decoding avoids video keyframe seeking in either direction. */
@@ -55,6 +87,7 @@ export function HomeFilms({ viewport, reduced = false }) {
   const closeScrim = useRef(null)
   const narrow = viewport?.mobile || viewport?.portrait
   const tier = tierFor(viewport)
+  const fit = fitFor(viewport)
 
   useLayoutEffect(() => {
     const el = root.current
@@ -72,8 +105,9 @@ export function HomeFilms({ viewport, reduced = false }) {
          is — the room is a film, not a wipe between two photographs, which is
          what used to leave the second half of the hero standing still while
          the reader kept scrolling. */
-      const one = reduced ? null : attachFrameRenderer(v1, { film: 'film-one', tier })
-      const two = reduced ? null : attachFrameRenderer(v2, { film: 'film-two', tier })
+      const frame = { tier, fit, maxZoom: MAX_DRIFT }
+      const one = reduced ? null : attachFrameRenderer(v1, { film: 'film-one', ...frame })
+      const two = reduced ? null : attachFrameRenderer(v2, { film: 'film-two', ...frame })
 
       /* everything the burn writes to, looked up once */
       const eaten = svg.querySelector('[data-burn-eaten]')
@@ -226,7 +260,7 @@ export function HomeFilms({ viewport, reduced = false }) {
     }, root)
 
     return () => ctx.revert()
-  }, [reduced, tier])
+  }, [reduced, tier, fit])
 
   return (
     <section
@@ -240,12 +274,13 @@ export function HomeFilms({ viewport, reduced = false }) {
           {/* Each layer carries its film's own first frame as a poster, so the
               picture is right from the first paint and stays right through a
               resize, when the canvas backing store is cleared. */}
-          <div className="home-film-layer" style={{ backgroundImage: `url('${frameUrl('film-one', tier, 0)}')` }}>
+          <div className="home-film-layer" data-fit={fit} style={{ backgroundImage: `url('${frameUrl('film-one', tier, 0)}')` }}>
             <canvas ref={filmOne} className="home-film-canvas" aria-hidden="true" style={{ opacity: 0 }} />
           </div>
           <div
             ref={layerTwo}
             className="home-film-layer"
+            data-fit={fit}
             style={{
               opacity: reduced ? 1 : 0,
               visibility: reduced ? 'visible' : 'hidden',
@@ -340,18 +375,25 @@ export function HomeFilms({ viewport, reduced = false }) {
           <h2
             data-end="title"
             style={{ opacity: 0, willChange: 'transform, opacity' }}
-            className="font-editorial text-[clamp(1.9rem,7vw,5.4rem)] leading-[1.05] tracking-editorial text-bone [text-shadow:0_2px_30px_rgba(8,7,6,0.7)]"
+            /* The clamp's floor is 1.9rem, which on a 390px screen set the
+               wordmark 287px wide inside 342px of usable width — it ran very
+               nearly edge to edge, and at 375px closer still. Below `sm` it is
+               a flat 1.65rem; from `sm` up the clamp is exactly as it was. */
+            className="font-editorial text-[1.65rem] leading-[1.05] tracking-editorial text-bone [text-shadow:0_2px_30px_rgba(8,7,6,0.7)] sm:text-[clamp(1.9rem,7vw,5.4rem)]"
           >
             {BRAND}
           </h2>
           <p
             data-end="sub"
             style={{ opacity: 0, willChange: 'transform, opacity' }}
-            className="mt-5 font-display text-[clamp(0.9rem,1.7vw,1.15rem)] font-light italic text-bone/75 [text-shadow:0_2px_18px_rgba(8,7,6,0.7)]"
+            className="mt-4 font-display text-[13px] font-light italic text-bone/75 [text-shadow:0_2px_18px_rgba(8,7,6,0.7)] sm:mt-5 sm:text-[clamp(0.9rem,1.7vw,1.15rem)]"
           >
             Architecture, 3D design, visualization
           </p>
-          <div className="home-film-end-actions mt-9 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
+          {/* `max-w` is what gives the stacked pair a single shared width to
+              sit in; from `sm` up the cap is lifted and they sit side by side
+              at their own widths, exactly as before. */}
+          <div className="home-film-end-actions mt-6 flex w-full max-w-[15.5rem] flex-col items-stretch gap-2.5 sm:mt-9 sm:max-w-none sm:flex-row sm:items-center sm:gap-4">
             <a
               data-end="cta1"
               tabIndex={-1}

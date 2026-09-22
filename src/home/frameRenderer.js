@@ -30,6 +30,35 @@ export function attachFrameRenderer(canvas, {
   film,
   tier = 'wide',
   count = 240,
+  /**
+   * How the frame meets the canvas.
+   *
+   * `cover` fills the panel and lets the crop fall where it may — right on a
+   * landscape screen, where the frame and the panel are nearly the same shape
+   * and the loss is a few percent of the margins.
+   *
+   * `contain` fits the WHOLE frame inside the panel and lets the ink show
+   * above and below it. A phone held upright is about 0.46 wide for every 1
+   * tall against a 1.78 frame — cover there is not a crop, it is a different
+   * picture, keeping roughly a quarter of the width and throwing away the
+   * composition on either side. Better a smaller picture that is still the
+   * shot than a full-bleed one that is not.
+   */
+  fit = 'cover',
+  /** the drift's ceiling, so `contain` can hold the full frame even at full
+   *  zoom rather than letting the last two percent crop the edges back off */
+  maxZoom = 1,
+  /** the ground under everything, matching the section behind the canvas */
+  ground = '#0b0a09',
+  /** How far the veil over the spill knocks it back, 0 = untouched … 1 = ink.
+   *  High enough that the sharp frame is plainly the subject and the rest is
+   *  only light in the room around it. */
+  spillVeil = 0.7,
+  /** Width in pixels of the thumbnail the spill is built from. This IS the
+   *  blur: thirty-odd pixels stretched across a phone cannot describe anything
+   *  smaller than a broad wash of colour, which is the whole point, and it
+   *  costs one tiny draw instead of a full-canvas filter pass every frame. */
+  spillWidth = 30,
   /** where the crop sits vertically, 0 = top … 1 = bottom */
   focus = 0.5,
   /** frames decoded ahead of / behind the reader, capped against `CAPACITY` */
@@ -69,6 +98,53 @@ export function attachFrameRenderer(canvas, {
 
   const url = index => `/assets/home-frames/${film}/${tier}/${String(index).padStart(3, '0')}.webp`
 
+  /* Scratch canvas for the spill, made once and reused every frame. */
+  let spill = null
+  let spillContext = null
+
+  /**
+   * Fill the panel behind a contained frame with the frame's own light.
+   *
+   * A 16:9 shot inside a panel two and a half times taller than it is wide
+   * leaves a lot of panel over. Left as ink it reads as a picture that failed
+   * to load; what belongs there is the same frame, cover-cropped so it reaches
+   * every edge, and thrown so far out of focus that it is colour rather than
+   * content. Nothing is cropped away — the crop only happens to the copy the
+   * eye is not meant to read — and nothing is enlarged: the sharp frame in the
+   * middle is still the whole shot at its own scale.
+   *
+   * The defocus is done by drawing the frame into a ~44px thumbnail and
+   * blowing that back up to the panel. The upscale's own interpolation is the
+   * blur, which is why this costs two draws rather than a filter pass, and why
+   * it does not care how large the panel is.
+   */
+  const drawSpill = (image) => {
+    const w = spillWidth
+    const h = Math.max(1, Math.round(w * (height / width)))
+    if (!spill) {
+      spill = document.createElement('canvas')
+      spillContext = spill.getContext('2d', { alpha: false })
+    }
+    if (!spillContext) return false
+    if (spill.width !== w || spill.height !== h) {
+      spill.width = w
+      spill.height = h
+    }
+    const cover = Math.max(w / image.naturalWidth, h / image.naturalHeight)
+    const cw = image.naturalWidth * cover
+    const ch = image.naturalHeight * cover
+    spillContext.imageSmoothingEnabled = true
+    spillContext.drawImage(image, (w - cw) / 2, (h - ch) / 2, cw, ch)
+    context.drawImage(spill, 0, 0, width, height)
+    /* and settled back, so the eye goes to the frame and the captions over it
+       keep the contrast they were set against */
+    context.fillStyle = ground
+    context.globalAlpha = spillVeil
+    context.fillRect(0, 0, width, height)
+    context.globalAlpha = 1
+    return true
+  }
+
   const draw = () => {
     paint = 0
     if (disposed || !width || !height) return
@@ -81,11 +157,29 @@ export function attachFrameRenderer(canvas, {
     const image = cache.get(index)
     if (image === undefined) return
     if (drawn === index && drawnZoom === zoom) return
-    const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight) * zoom
+    const byWidth = width / image.naturalWidth
+    const byHeight = height / image.naturalHeight
+    /* `cover` takes the larger ratio, so the smaller side overflows and is
+       cropped; `contain` takes the smaller, so the larger side falls short and
+       is let-boxed. The drift is divided out of `contain` by its own ceiling,
+       which means the frame reaches exactly the panel's edges at full zoom and
+       sits a whisker inside it before that — the picture still breathes, and
+       no part of it is ever pushed out of sight to pay for the breathing. */
+    const scale = fit === 'contain'
+      ? Math.min(byWidth, byHeight) * (zoom / maxZoom)
+      : Math.max(byWidth, byHeight) * zoom
     const w = Math.round(image.naturalWidth * scale)
     const h = Math.round(image.naturalHeight * scale)
     context.imageSmoothingEnabled = true
     context.imageSmoothingQuality = 'high'
+    /* Short of the edges, the panel has to be repainted under this frame or
+       the last one's edges stay behind around it. */
+    if (w < width || h < height) {
+      if (!drawSpill(image)) {
+        context.fillStyle = ground
+        context.fillRect(0, 0, width, height)
+      }
+    }
     context.drawImage(image, Math.round((width - w) / 2), Math.round((height - h) * focus), w, h)
     drawn = index
     drawnZoom = zoom
@@ -163,10 +257,16 @@ export function attachFrameRenderer(canvas, {
 
   const resize = () => {
     const rect = canvas.getBoundingClientRect()
-    // Cover-cropping limits detail on BOTH axes, especially on tall phones.
-    // Use available device pixels up to the export's actual resolution.
-    const ratio = Math.min(window.devicePixelRatio || 1,
-      quality.width / Math.max(1, rect.width), quality.height / Math.max(1, rect.height))
+    // Use available device pixels up to the export's actual resolution — past
+    // that we would only be enlarging pixels that are not in the file.
+    // Which axis can bind depends on the fit: cover-cropping draws past BOTH
+    // edges, so both cap; contained, only the width is ever met, and capping
+    // on a height the frame never reaches would throw away real resolution and
+    // hand a phone a soft picture on top of a small one.
+    const dpr = window.devicePixelRatio || 1
+    const ratio = fit === 'contain'
+      ? Math.min(dpr, quality.width / Math.max(1, rect.width))
+      : Math.min(dpr, quality.width / Math.max(1, rect.width), quality.height / Math.max(1, rect.height))
     const nextW = Math.max(1, Math.round(rect.width * ratio))
     const nextH = Math.max(1, Math.round(rect.height * ratio))
     if (nextW === width && nextH === height) return

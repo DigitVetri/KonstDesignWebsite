@@ -29,45 +29,72 @@ export function HowWeWork({ reduced = false }) {
     const ctx = gsap.context((self) => {
       const q = (s) => self.selector(s)
 
-      /* How far the photograph travels on its way in, as a percentage of its
-         own width. On a wide screen it sits in seven of twelve columns, so
-         there is room beside it to travel through. On a phone it is already
-         the full width of the screen, and the same 42% throws half the image
-         off the edge — hence the much shorter move below the lg breakpoint. */
-      const ENTER = window.matchMedia('(min-width: 1024px)').matches ? 12 : 0
-
       gsap.from(q('[data-reveal] > *'), {
         opacity: reduced ? 1 : 0, y: reduced ? 0 : 24, duration: 1, ease: 'expo.out', stagger: 0.1,
         scrollTrigger: { trigger: el, start: 'top 72%', once: true },
       })
 
-      q('[data-row]').forEach((row) => {
-        const img = row.querySelector('[data-row-img]')
-        const copy = row.querySelector('[data-row-copy]')
-        const left = row.dataset.side === 'left'
-        if (reduced) {
+      if (reduced) {
+        q('[data-row]').forEach((row) => {
+          const img = row.querySelector('[data-row-img]')
+          const copy = row.querySelector('[data-row-copy]')
           gsap.set([img, copy], { opacity: 1, x: 0, y: 0, scale: 1 })
           gsap.set(copy.children, { opacity: 1, y: 0 })
-          return
-        }
-        const tl = gsap.timeline({
-          scrollTrigger: { trigger: row, start: 'top 88%', end: 'top 34%', scrub: true },
         })
-        /* image enters pulled toward page centre, then travels to its side */
-        tl.fromTo(
-          img,
-          { opacity: 0, scale: 1.035, xPercent: left ? ENTER : -ENTER, yPercent: 3 },
-          { opacity: 1, scale: 1, xPercent: 0, yPercent: 0, ease: 'power2.out', duration: 1 },
-          0,
-        )
-        /* text rises in on the opposite side, in one staggered group */
-        tl.fromTo(
-          copy.children,
-          { opacity: 0, y: 34 },
-          { opacity: 1, y: 0, ease: 'power2.out', stagger: 0.18, duration: 0.7 },
-          0.45,
-        )
-      })
+        return
+      }
+
+      /**
+       * The same reveal, in the two shapes the row actually takes.
+       *
+       * Side by side the photograph sits in seven of twelve columns, so there
+       * is room beside it to travel through, and it enters pulled toward the
+       * centre of the page before settling onto its own side.
+       *
+       * Stacked there is no beside — the photograph is the full width of the
+       * screen, and a sideways entrance either does nothing or throws half the
+       * image off the edge. So it was set to zero, which is how a phone came to
+       * have no visible entrance at all: what remained was a fade that finished
+       * while the picture was still below the fold, so by the time it could be
+       * seen it had already arrived. The stacked pass trades the sideways move
+       * for a vertical one, and — the part that actually matters — holds the
+       * range open until the row is properly on screen, so the movement happens
+       * where it can be watched rather than under the bottom edge.
+       */
+      const PASS = {
+        wide: { enter: 12, rise: 3, start: 'top 88%', end: 'top 34%', copyRise: 34, stagger: 0.18 },
+        stacked: { enter: 0, rise: 9, start: 'top 82%', end: 'top 22%', copyRise: 26, stagger: 0.12 },
+      }
+
+      const rows = (key) => {
+        const v = PASS[key]
+        q('[data-row]').forEach((row) => {
+          const img = row.querySelector('[data-row-img]')
+          const copy = row.querySelector('[data-row-copy]')
+          const left = row.dataset.side === 'left'
+          const tl = gsap.timeline({
+            scrollTrigger: { trigger: row, start: v.start, end: v.end, scrub: true },
+          })
+          tl.fromTo(
+            img,
+            { opacity: 0, scale: 1.035, xPercent: left ? v.enter : -v.enter, yPercent: v.rise },
+            { opacity: 1, scale: 1, xPercent: 0, yPercent: 0, ease: 'power2.out', duration: 1 },
+            0,
+          )
+          /* text rises in on the opposite side, in one staggered group */
+          tl.fromTo(
+            copy.children,
+            { opacity: 0, y: v.copyRise },
+            { opacity: 1, y: 0, ease: 'power2.out', stagger: v.stagger, duration: 0.7 },
+            0.45,
+          )
+        })
+      }
+
+      const mm = gsap.matchMedia(root)
+      mm.add('(min-width: 1024px)', () => rows('wide'))
+      mm.add('(max-width: 1023.98px)', () => rows('stacked'))
+      return () => mm.revert()
     }, root)
     return () => ctx.revert()
   }, [reduced])

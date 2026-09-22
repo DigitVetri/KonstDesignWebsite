@@ -116,9 +116,22 @@ export function Recognition({ reduced = false }) {
 
       <div ref={panel} className="panel-h relative z-10 flex items-center">
         <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col px-6 pb-[3vh] pt-[11vh] sm:px-10 lg:px-14">
-          <div className="grid flex-1 items-center gap-8 lg:grid-cols-12 lg:gap-14">
+          {/* `relative` is here for the watermark's benefit. Below `lg` the
+              column below dissolves into this grid (see `contents`), which
+              would otherwise send the absolutely-positioned numeral looking
+              further up the tree for a containing block and land it in a
+              different place on a phone than on a desktop. */}
+          <div className="relative grid flex-1 items-center gap-8 lg:grid-cols-12 lg:gap-14">
             {/* ── the words, held still ─────────────────────────────────── */}
-            <div className="relative lg:col-span-5">
+            {/*  Stacked, the heading, the photograph and the award's title are
+                three things in one column, and the photograph belongs between
+                the other two — the award is named under the picture of it, not
+                above. They cannot be ordered while two of them are wrapped in
+                a column the third is outside of, so below `lg` the column
+                stops generating a box and its children join this grid
+                directly, where `order` can interleave them. From `lg` it is a
+                block again and the two-column layout is exactly as it was. */}
+            <div className="contents lg:block lg:relative lg:col-span-5">
               {/* the oversized numeral behind the words: the drafting-paper
                   watermark that keeps the ground from reading as bare, one
                   per award, changing with them */}
@@ -134,23 +147,26 @@ export function Recognition({ reduced = false }) {
                 ))}
               </div>
 
-              <div className="relative">
-                {header}
+              {/* `relative` on both of these is what keeps them painted over
+                  the watermark: it is absolutely positioned, so in-flow
+                  siblings sit under it unless they are positioned too. */}
+              <div className="relative order-1 lg:order-none">{header}</div>
 
-                {/* the swapping block: every award is rendered, stacked in the
-                    same place, and only one is ever opaque */}
-                <div data-award-titles className="relative mt-[5vh]">
-                  {AWARDS.map((a) => (
-                    <div key={a.id} data-award-title className="absolute inset-x-0 top-0">
-                      {words(a)}
-                    </div>
-                  ))}
-                </div>
+              {/* the swapping block: every award is rendered, stacked in the
+                  same place, and only one is ever opaque. Stacked it follows
+                  the photograph, so the top margin that separated it from the
+                  heading gives way to the grid's own gap. */}
+              <div data-award-titles className="relative order-3 lg:order-none lg:mt-[5vh]">
+                {AWARDS.map((a) => (
+                  <div key={a.id} data-award-title className="absolute inset-x-0 top-0">
+                    {words(a)}
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* ── the pile of photographs ───────────────────────────────── */}
-            <div className="lg:col-span-7">
+            <div className="order-2 lg:order-none lg:col-span-7">
               <div className="relative mx-auto aspect-[3/2] w-full max-w-[38rem] lg:max-w-none">
                 {AWARDS.map((a) => (
                   <div

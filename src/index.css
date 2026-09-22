@@ -329,8 +329,8 @@ canvas {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   CUSTOM CURSOR — an exact dot with a thin ring easing along behind it.
-   Both layers are inert (`pointer-events: none`), so they can never swallow a
+   CUSTOM CURSOR — the site's house, drawn at pointer size, in place of the
+   arrow. It is inert (`pointer-events: none`), so it can never swallow a
    click. The native cursor is hidden only once the custom one is actually
    mounted, which happens on pointer devices alone — a touch device never gets
    `data-cursor="custom"` and so keeps its own behaviour untouched.
@@ -421,10 +421,41 @@ html[data-cursor-mode='custom'] * {
   background-size: cover;
   background-position: center;
 }
+/* The poster under each canvas is the same frame the canvas is about to draw,
+   so it has to be framed the same way — otherwise the first paint, and every
+   resize that clears the backing store, flashes a differently-cropped picture
+   before the canvas catches up. */
+.home-film-layer[data-fit='contain'] {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-color: var(--color-ink);
+}
+/* The same frame again, cover-cropped and thrown out of focus, so the panel
+   around the poster carries the picture's own light exactly as the canvas
+   fills it a moment later. `inherit` takes the frame from the layer's own
+   inline background-image, and the slight overscale hides the soft edge the
+   blur leaves at the boundary. Painted before the canvas child, so the sharp
+   frame always lands on top of it. */
+.home-film-layer[data-fit='contain']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: inherit;
+  background-size: cover;
+  background-position: center;
+  filter: blur(38px) brightness(0.3);
+  transform: scale(1.12);
+}
 .home-film-canvas {
   display: block;
   width: 100%;
   height: 100%;
+  /* The defocused poster behind it is absolutely positioned, and a positioned
+     box paints above in-flow content however early it appears — without a
+     position of its own the canvas would sit UNDER its own blurred stand-in
+     and the sharp frame would never be seen. */
+  position: relative;
+  z-index: 1;
 }
 .home-film-caption {
   position: absolute;
@@ -602,7 +633,29 @@ section[id] { scroll-margin-top: 24px; }
 .rail-progress-rail { position: relative; flex: 1 1 auto; height: 24px; }
 .rail-progress-rail::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: currentColor; opacity: .3; }
 .rail-progress-mark { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 24px; height: 24px; background: var(--rail-ground, #f5f1e9); color: currentColor; will-change: transform; }
+/* The glow is sized to fade out inside the viewBox, and the svg's own
+   `overflow: hidden` is the guarantee it can never reach the hairline or the
+   indices the marker travels past. Nothing here may set it to `visible`. */
 .rail-progress-mark svg { width: 18px; height: 18px; }
+
+/* ── the light in the house ──────────────────────────────────────────────
+   The hue follows the section: warm amber everywhere, a shade brighter where
+   the ground is dark. Both the pool and the doorway read it, so one property
+   per section is all it takes. */
+.rail-progress-mark { --rail-glow: #c08a3c; }
+.rail-progress-mark stop { stop-color: var(--rail-glow); }
+.rail-mark-lit { fill: var(--rail-glow); }
+
+/* A slow breath, so the light feels lit rather than printed. Opacity only —
+   one compositor property, no layout, nothing per frame in JavaScript. */
+.rail-mark-glow { animation: rail-breathe 4.2s ease-in-out infinite; }
+@keyframes rail-breathe {
+  0%, 100% { opacity: .62; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-mark-glow { animation: none; opacity: .8; }
+}
 
 /* The vertical variant: the same hairline and the same marker, stood on end.
    The owning section moves the marker along `y` instead of `x`. */
@@ -825,6 +878,8 @@ section[id] { scroll-margin-top: 24px; }
 /* ── the rail, on the right edge ───────────────────────────────────────── */
 .projects-rail { grid-area: rail; position: relative; z-index: 2; height: min(58%, 26rem); align-self: center; color: #c9b99d; }
 .projects-deck-section { --rail-ground: #231b14; }
+/* on the dark ground the same amber needs lifting to stay legible */
+.projects-deck-section .rail-progress-mark { --rail-glow: #f0bd76; }
 .projects-section .section-heading > .eyebrow { color: #c9b99d; border-color: #f3f0e930; }
 .project-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 4.5rem 2.5rem; }
 .project-card .image-button { aspect-ratio: 4/3; }

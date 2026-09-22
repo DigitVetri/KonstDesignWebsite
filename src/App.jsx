@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { Cursor } from './components/Cursor.jsx'
 import { HomeFilms } from './components/HomeFilms.jsx'
 import { Quote } from './components/Quote.jsx'
 import { Services } from './components/Services.jsx'
@@ -86,6 +87,12 @@ export default function App() {
   return (
     <>
       <a className="skip-link" href="#about">Skip the introduction</a>
+
+      {/* The pointer itself: the site's house in place of the arrow. It mounts
+          only on devices that can hover, and it is what switches the native
+          cursor off — so a touch device is left entirely alone. */}
+      <Cursor />
+
       <main id="top">
         {/* Home opens on the two-film sequence — both scroll-controlled, one
             continuous shot — and flows from there into the first quote. */}

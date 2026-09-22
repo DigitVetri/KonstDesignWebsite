@@ -25,7 +25,13 @@ export function About({ viewport, reduced = false }) {
   const glow = useRef(null)
   const stacked = viewport.mobile || viewport.portrait
 
-  useAboutTimeline(root, { mobile: stacked, enabled: !stacked && !reduced })
+  /* The sequence runs on every screen that will accept motion. `mobile` is
+     not a switch for whether it runs — it is how it runs: the hook reads it to
+     drop the left/right offset the drawing flies through (there is no room for
+     it beside a phone) and to soften the scale it takes on the way. Gating it
+     off below the breakpoint, as this used to, left a phone with a static
+     picture and three paragraphs where a desktop had the room being drawn. */
+  useAboutTimeline(root, { mobile: stacked, enabled: !reduced })
 
   /* the drafting grid brightens in a soft circle around the cursor — pure
      CSS-variable + mask work, so it never triggers layout or reflow (§5) */
@@ -48,7 +54,12 @@ export function About({ viewport, reduced = false }) {
       ? 'pointer-events-none absolute inset-x-0 top-[49vh] flex justify-center px-6'
       : `pointer-events-none absolute inset-y-0 ${side === 'right' ? 'right-0 pr-6 sm:pr-10 lg:pr-14' : 'left-0 pl-6 sm:pl-10 lg:pl-14'} flex w-[46vw] max-w-[620px] items-center`
 
-  if (stacked || reduced) return (
+  /* Reduced motion — and ONLY reduced motion — gets the reading fallback: the
+     same three stages as prose, because there is no sequence to watch when
+     nothing is allowed to move. A small screen is not that case, and giving it
+     this tree meant it also got a heading and a photograph that exist nowhere
+     on the desktop page. */
+  if (reduced) return (
     <section id="about" className="portfolio-section about-reading">
       <div className="site-container">
         <header className="section-heading"><p className="eyebrow">01 / The studio</p><h2>From a line.<br /><em>To a way of living.</em></h2></header>
@@ -95,7 +106,15 @@ export function About({ viewport, reduced = false }) {
         >
           <div
             data-fly
-            className={`relative ${stacked ? 'w-[94vw] max-w-[580px]' : 'w-[48vw] max-w-[860px]'}`}
+            /* Stacked, the drawing and its panel are two fixed offsets down the
+               same pinned panel (13vh and 49vh), so the drawing has to fit the
+               36vh between them. Width alone cannot promise that: the room is
+               10:7, and on a tablet the 580px cap makes it 406px tall against
+               369px of room, which put its lower edge through the eyebrow. The
+               45vh cap is the same limit expressed on the axis that is actually
+               short — every phone width is well inside it, so only the tablet
+               case moves. */
+            className={`relative ${stacked ? 'w-[94vw] max-w-[min(580px,45vh)]' : 'w-[48vw] max-w-[860px]'}`}
             style={{ willChange: 'transform' }}
           >
             <RoomDrawing />

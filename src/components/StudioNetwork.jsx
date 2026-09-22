@@ -23,27 +23,34 @@ const TRAVEL = {
 /**
  * onEnter · onLeave · onEnterBack · onLeaveBack.
  *
- * The row plays as it arrives and runs backwards as it leaves upward, so the
- * portraits retreat the way they came instead of vanishing — and it is ready
- * to play again the next time the section is scrolled to. Passing the
- * timeline to the trigger rather than firing it from a callback is what makes
- * the reverse possible: the trigger owns the playhead, so it can wind it back.
+ * Every crossing of the trigger, in both directions, moves the playhead: the
+ * row plays as it arrives and runs backwards as it leaves, whichever edge it
+ * leaves by. That is what makes the pass repeatable rather than a one-shot —
+ * with `none` on the two middle slots the row stayed played once the reader
+ * had scrolled below it, so coming back up to it and going down again showed
+ * nothing at all unless they happened to scroll clear above the section first.
+ *
+ * Passing the timeline to the trigger rather than firing it from a callback is
+ * what makes the reverse possible: the trigger owns the playhead, so it winds
+ * the SAME timeline back from wherever it has got to. Nothing is rebuilt per
+ * crossing, so scrubbing back and forth cannot stack triggers or desync — an
+ * entrance interrupted halfway simply reverses from halfway.
  */
-const TOGGLE = 'play none none reverse'
+const TOGGLE = 'play reverse play reverse'
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  *  STUDIO NETWORK  ·  the three principals, under the credentials row
  * ─────────────────────────────────────────────────────────────────────────────
- *  A one-time entrance, not a scrubbed pass: the connector draws itself across
+ *  A timed entrance, not a scrubbed pass: the connector draws itself across
  *  the three cities, its markers settle onto the line, and the three portraits
  *  arrive from the three directions the row implies — the left studio from the
  *  left, the right studio from the right, the middle one up from below. Each
  *  name and qualification follows its own photograph a beat later.
  *
- *  It plays every time the section is scrolled into view and runs backwards
- *  when it leaves upward, so the pass is repeatable in both directions rather
- *  than a one-shot. Below the breakpoint the three cards stack, and
+ *  It plays every time the row is scrolled into view and runs backwards every
+ *  time it leaves, by either edge, so the pass is repeatable in both
+ *  directions rather than a one-shot. Below the breakpoint the three cards stack, and
  *  each one keeps its own direction but triggers on its own arrival rather
  *  than the section's, so nothing has already happened off-screen by the time
  *  it is reached.

@@ -123,24 +123,50 @@ export function Studios({ viewport, reduced = false }) {
         })
       }
 
-      if (reduced || stacked) {
+      /* Nothing is allowed to move: the map is simply shown at the framing
+         the journey would have ended on. */
+      if (reduced) {
         frame(1)
-      } else {
-        frame(0)
-        gsap.to({ p: 0 }, {
-          p: 1, ease: 'none',
-          scrollTrigger: {
-            trigger: el, start: 'top top', end: 'bottom bottom', scrub: true,
-            invalidateOnRefresh: true,
-            onRefresh: () => { S1 = fitZoom() },
-          },
-          onUpdate() { frame(this.targets()[0].p) },
-        })
-        gsap.from(q('[data-info] [data-reveal-item]'), {
-          opacity: 0, y: 26, duration: 1, ease: 'expo.out', stagger: 0.12,
-          scrollTrigger: { trigger: el, start: 'top 60%', once: true },
-        })
+        return
       }
+
+      /**
+       * Where the zoom's scroll range is measured from.
+       *
+       * Pinned, the section IS the track: the pass runs the length of it,
+       * top to bottom, and the map is held on screen throughout.
+       *
+       * Stacked, there is no pin — the section is `height: auto` and the map
+       * is a band at the top of it that scrolls by like anything else. Reading
+       * the range off the section would spend most of it long after the map
+       * had left the screen, which is why this branch used to skip the pass
+       * entirely and jump the map to its final framing. Measured off the map's
+       * OWN passage instead, the zoom starts as it comes up past the fold and
+       * finishes with it still fully in view — the same journey, over the
+       * scroll the map is actually visible for.
+       */
+      const pass = stacked
+        ? { trigger: q('[data-map-pane]')[0] || el, start: 'top 92%', end: 'bottom 60%' }
+        : { trigger: el, start: 'top top', end: 'bottom bottom' }
+
+      frame(0)
+      gsap.to({ p: 0 }, {
+        p: 1, ease: 'none',
+        scrollTrigger: {
+          ...pass, scrub: true,
+          invalidateOnRefresh: true,
+          onRefresh: () => { S1 = fitZoom() },
+        },
+        onUpdate() { frame(this.targets()[0].p) },
+      })
+      gsap.from(q('[data-info] [data-reveal-item]'), {
+        opacity: 0, y: 26, duration: 1, ease: 'expo.out', stagger: 0.12,
+        /* stacked, the copy sits below the map rather than beside it, so it
+           earns its own arrival instead of riding the section's */
+        scrollTrigger: stacked
+          ? { trigger: q('[data-info]')[0] || el, start: 'top 85%', once: true }
+          : { trigger: el, start: 'top 60%', once: true },
+      })
     }, root)
     return () => ctx.revert()
   }, [reduced, stacked])
@@ -171,7 +197,7 @@ export function Studios({ viewport, reduced = false }) {
     >
       <div className="sticky top-0 flex panel-h w-full flex-col overflow-hidden bg-cream lg:grid lg:grid-cols-2">
         {/* ── realistic map (left 50%) ─────────────────────────────────── */}
-        <div className="relative h-[44svh] min-h-0 overflow-hidden border-b border-cream-line bg-[#d9e2e6] lg:h-full lg:border-b-0 lg:border-r">
+        <div data-map-pane className="relative h-[44svh] min-h-0 overflow-hidden border-b border-cream-line bg-[#d9e2e6] lg:h-full lg:border-b-0 lg:border-r">
           <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
             <g data-map-group>
               {/* faint graticule for geographic feel */}
